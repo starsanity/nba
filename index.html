@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NBA Spread Analyzer</title>
+    
+    <!-- External Libraries with High-Availability CDNs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'media'
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.js"></script>
+    <script>
+        if (typeof Vue === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"><\/script>');
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        [v-cloak] { display: none; }
+        body { -webkit-tap-highlight-color: transparent; }
+        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid #2563eb; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.8s linear infinite; }
+        @media (prefers-color-scheme: dark) {
+            .spinner { border-color: #334155; border-top-color: #3b82f6; }
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .logo-img { object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08)); }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between transition-colors duration-200">
+
+<div id="app" v-cloak class="flex-1 flex flex-col w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+    
+    <!-- Header -->
+    <header class="bg-blue-900 dark:bg-blue-950 text-white rounded-2xl shadow-lg p-4 sm:p-5 mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border border-transparent dark:border-blue-900/50">
+        <div>
+            <div class="flex items-center gap-2.5">
+                <span class="bg-amber-500 text-slate-950 text-[11px] font-black uppercase px-2 py-0.5 rounded tracking-wider">NBA Quant</span>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight">NBA Spread Analyzer</h1>
+            </div>
+            <p v-if="sheetUpdatedText" class="text-[11px] text-blue-200/80 mt-1 font-medium">{{ sheetUpdatedText }}</p>
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+            <span v-if="dataLoaded" class="text-xs bg-blue-800 dark:bg-blue-900 text-blue-100 px-3 py-1.5 rounded-lg border border-blue-700/50 dark:border-blue-700 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                {{ games.length }} Matchups Loaded
+            </span>
+            <button v-if="dataLoaded" @click="fetchData" class="text-xs bg-blue-700 hover:bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg border border-blue-600 transition-colors cursor-pointer">
+                ↻ Sync Sheet
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex flex-col">
+        
+        <!-- Loading & Ingestion Card -->
+        <div v-if="!dataLoaded" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center shadow-sm max-w-xl mx-auto w-full my-auto transition-colors">
+            
+            <div v-if="isLoading" class="flex flex-col items-center py-6">
+                <div class="spinner mb-4"></div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Querying Prediction Tracker NBA Sheet</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs">Connecting via Google Visualization API...</p>
+            </div>
+
+            <div v-else>
+                <div class="w-12 h-12 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Sheet Ingestion Status</h2>
+                <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">{{ loadError || "Unable to sync automatically from Google Sheet." }}</p>
+
+                <div class="flex flex-col sm:flex-row gap-2.5 justify-center mb-6">
+                    <button @click="fetchData" class="bg-blue-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-sm cursor-pointer">
+                        ↻ Retry Sync
+                    </button>
+                    <label class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-sm px-5 py-2.5 rounded-xl cursor-pointer transition-colors border border-slate-300 dark:border-slate-700">
+                        Upload Local CSV
+                        <input type="file" accept=".csv" @change="handleFileUpload" class="hidden" />
+                    </label>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <button @click="showPasteBox = !showPasteBox" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium cursor-pointer">
+                        {{ showPasteBox ? 'Hide Manual Input' : 'Paste Raw CSV Text Directly' }}
+                    </button>
+                    <div v-if="showPasteBox" class="mt-3 text-left">
+                        <textarea v-model="pastedText" rows="4" placeholder="Paste Prediction Tracker NBA CSV text here..." class="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"></textarea>
+                        <button @click="parsePastedText" class="mt-2 w-full bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold py-2 rounded-lg cursor-pointer">Parse CSV</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Dashboard Workspace -->
+        <div v-else class="flex flex-col flex-1">
+            
+            <!-- Navigation Tabs -->
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4 sm:mb-6 flex-wrap gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button @click="activeTab = 'input'" :class="activeTab === 'input' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'" class="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer">
+                        <span>⚡ Matchup Analyzer</span>
+                    </button>
+                    
+                    <button @click="activeTab = 'summary'" :class="activeTab === 'summary' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'" class="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer">
+                        <span>📋 User-Selected Slate</span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full" :class="activeTab === 'summary' ? 'bg-blue-800 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'">
+                            {{ analyzedGames.length }}
+                        </span>
+                    </button>
+
+                    <button @click="activeTab = 'batch'" :class="activeTab === 'batch' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'" class="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer">
+                        <span>📊 Master Classification Summary</span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full" :class="activeTab === 'batch' ? 'bg-emerald-900 text-white' : 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-bold'">
+                            {{ batchSlateGames.length }}
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Stats Badges -->
+                <div v-if="currentSlateStats" class="flex items-center gap-1.5 text-[11px] font-bold">
+                    <span class="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-md border border-emerald-300 dark:border-emerald-800">
+                        {{ currentSlateStats.strong }} Strong Bets
+                    </span>
+                    <span class="bg-green-100 dark:bg-green-950/80 text-green-800 dark:text-green-300 px-2.5 py-1 rounded-md border border-green-300 dark:border-green-800">
+                        {{ currentSlateStats.bet }} Bets
+                    </span>
+                    <span class="bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 px-2.5 py-1 rounded-md border border-blue-300 dark:border-blue-800">
+                        {{ currentSlateStats.lean }} Leans
+                    </span>
+                </div>
+            </div>
+
+            <!-- TAB 1: Matchup Analyzer -->
+            <div v-show="activeTab === 'input'" class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+                
+                <!-- Left Column: Matchup Analyzer & Slate Batch Trigger -->
+                <div class="lg:col-span-5 flex flex-col gap-4">
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm transition-colors">
+                        <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs flex items-center justify-center font-bold">1</span>
+                            Matchup Analyzer
+                        </h2>
+
+                        <!-- Matchup Dropdown (Auto-evaluates on selection) -->
+                        <div class="mb-4">
+                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Select NBA Matchup</label>
+                            <select v-model="selectedGameId" @change="runAnalysis" class="w-full p-3 sm:p-3.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="" disabled>-- Select Matchup ({{ games.length }} available) --</option>
+                                <option v-for="game in games" :key="game.id" :value="game.id">
+                                    {{ game.road }} @ {{ game.home }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Dataset Benchmarks -->
+                        <div v-if="selectedGame" class="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <div class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Dataset Benchmarks</span>
+                                    <div v-if="getLineTrend(selectedGame)" class="flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded" :class="getLineTrend(selectedGame).badgeClass">
+                                        <span>{{ getLineTrend(selectedGame).arrow }}</span>
+                                        <span>{{ getLineTrend(selectedGame).text }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-2 mb-3">
+                                    <div class="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-lg border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                                        <span class="text-[10px] text-slate-400 dark:text-slate-500 font-bold block uppercase">Opening Line</span>
+                                        <span class="font-black text-slate-700 dark:text-slate-200 text-sm sm:text-base block mt-0.5">{{ formatMarketLine(selectedGame, selectedGame.sheetOpen) }}</span>
+                                    </div>
+                                    <div class="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-lg border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                                        <span class="text-[10px] text-slate-400 dark:text-slate-500 font-bold block uppercase">Current Line</span>
+                                        <span class="font-black text-slate-900 dark:text-white text-sm sm:text-base block mt-0.5">{{ formatMarketLine(selectedGame, selectedGame.sheetLine) }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Dataset Statistical Aggregates -->
+                                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-center">
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 uppercase font-bold block">Consensus (lineavg)</span>
+                                        <span class="text-xs font-black text-slate-700 dark:text-slate-200 font-mono">{{ formatStat(selectedGame.raw.lineavg) }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 uppercase font-bold block">Std Dev (std)</span>
+                                        <span class="text-xs font-black text-slate-700 dark:text-slate-200 font-mono">{{ formatStat(selectedGame.raw.std) }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 uppercase font-bold block">Avg Diff</span>
+                                        <span class="text-xs font-black text-slate-700 dark:text-slate-200 font-mono">{{ formatStat(selectedGame.raw.lineavgdiff ?? selectedGame.raw.line_avgdiff) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Analyze Slate Action in Matchup Panel -->
+                        <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <button @click="batchAnalyzeAll(true)" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3 px-4 rounded-xl font-black text-sm transition-colors shadow-md shadow-emerald-600/20 cursor-pointer flex items-center justify-center gap-2">
+                                <span>⚡ Batch Analyze Full NBA Slate</span>
+                            </button>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center mt-1.5">
+                                Evaluate all {{ games.length }} matchups into the Master Classification Summary.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Output Analysis Card -->
+                <div class="lg:col-span-7 flex flex-col gap-4">
+                    <div v-if="latestResult" class="bg-white dark:bg-slate-900 rounded-2xl border p-5 sm:p-6 shadow-sm flex flex-col justify-between transition-all" :class="getResultBorderColor(latestResult.finalPick)">
+                        <div>
+                            <div class="flex flex-wrap justify-between items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                                <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-md" :class="latestResult.eventBadgeStyle">
+                                    {{ latestResult.eventLabel }}
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-11 items-center gap-2 py-2">
+                                <div class="col-span-5 flex flex-col items-center text-center">
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 dark:bg-slate-800 rounded-2xl p-2 border border-slate-100 dark:border-slate-700 flex items-center justify-center shadow-xs mb-2">
+                                        <img v-if="latestResult.roadInfo.logoUrl" :src="latestResult.roadInfo.logoUrl" :alt="latestResult.road" class="max-w-full max-h-full logo-img" @error="onImgError" />
+                                        <span v-else class="font-black text-lg text-slate-500 dark:text-slate-400">{{ latestResult.roadInfo.abbr }}</span>
+                                    </div>
+                                    <div class="font-black text-sm sm:text-base text-slate-900 dark:text-white leading-tight">{{ latestResult.road }}</div>
+                                    <span class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-0.5">{{ latestResult.roadInfo.abbr }} • {{ latestResult.roadInfo.conf }}</span>
+                                </div>
+
+                                <div class="col-span-1 flex flex-col items-center justify-center">
+                                    <span class="text-xs sm:text-sm font-black text-slate-300 dark:text-slate-600">@</span>
+                                </div>
+
+                                <div class="col-span-5 flex flex-col items-center text-center">
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 dark:bg-slate-800 rounded-2xl p-2 border border-slate-100 dark:border-slate-700 flex items-center justify-center shadow-xs mb-2">
+                                        <img v-if="latestResult.homeInfo.logoUrl" :src="latestResult.homeInfo.logoUrl" :alt="latestResult.home" class="max-w-full max-h-full logo-img" @error="onImgError" />
+                                        <span v-else class="font-black text-lg text-slate-500 dark:text-slate-400">{{ latestResult.homeInfo.abbr }}</span>
+                                    </div>
+                                    <div class="font-black text-sm sm:text-base text-slate-900 dark:text-white leading-tight">{{ latestResult.home }}</div>
+                                    <span class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-0.5">{{ latestResult.homeInfo.abbr }} • {{ latestResult.homeInfo.conf }}</span>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 dark:bg-slate-800/70 rounded-xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700/80 my-4 text-center">
+                                <div class="flex justify-center mb-2">
+                                    <span class="text-xs font-black uppercase tracking-wider px-3 py-1 rounded-md" :class="getResultBadgeColor(latestResult.finalPick)">
+                                        {{ latestResult.finalPick }}
+                                    </span>
+                                </div>
+                                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1">Recommended Side</div>
+                                <div class="text-2xl sm:text-3xl font-black text-blue-900 dark:text-blue-400 tracking-tight">
+                                    {{ latestResult.recommendedSide }}
+                                </div>
+                                <div v-if="latestResult.guardrailNote" class="mt-2 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                                    ⚠️ {{ latestResult.guardrailNote }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tier 1, Tier 2, Tier 3 Reads (Percentage Only) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <!-- Tier 1 -->
+                            <div class="bg-slate-50/70 dark:bg-slate-800/50 p-3 sm:p-4 rounded-xl border border-slate-100 dark:border-slate-700 text-center flex flex-col justify-between">
+                                <div>
+                                    <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Tier 1</span>
+                                    <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">{{ latestResult.t1Text }}</span>
+                                </div>
+                                <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
+                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase block">Avg Edge / Line</span>
+                                    <span class="font-black text-blue-900 dark:text-blue-400 block mt-0.5">
+                                        {{ latestResult.t1EdgeFormatted }} ({{ latestResult.t1AvgFormatted }})
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Tier 2 -->
+                            <div class="bg-slate-50/70 dark:bg-slate-800/50 p-3 sm:p-4 rounded-xl border border-slate-100 dark:border-slate-700 text-center flex flex-col justify-between">
+                                <div>
+                                    <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Tier 2</span>
+                                    <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">{{ latestResult.t2Text }}</span>
+                                </div>
+                                <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
+                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase block">Avg Edge / Line</span>
+                                    <span class="font-black text-blue-900 dark:text-blue-400 block mt-0.5">
+                                        {{ latestResult.t2EdgeFormatted }} ({{ latestResult.t2AvgFormatted }})
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Tier 3 -->
+                            <div class="bg-slate-50/70 dark:bg-slate-800/50 p-3 sm:p-4 rounded-xl border border-slate-100 dark:border-slate-700 text-center flex flex-col justify-between">
+                                <div>
+                                    <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">Tier 3</span>
+                                    <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">{{ latestResult.t3Text }}</span>
+                                </div>
+                                <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-xs">
+                                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase block">Control Avg</span>
+                                    <span class="font-black text-slate-700 dark:text-slate-300 block mt-0.5">
+                                        {{ latestResult.t3AvgFormatted }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center my-auto flex flex-col items-center justify-center min-h-[340px] transition-colors">
+                        <div class="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mb-3">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        </div>
+                        <h4 class="font-bold text-slate-700 dark:text-slate-300 text-base mb-1">Select a Matchup to Analyze</h4>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 max-w-xs">Select an NBA game from the dropdown on the left to automatically display its analysis.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: User-Selected Slate -->
+            <div v-show="activeTab === 'summary'" class="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50/50 dark:bg-slate-800/40">
+                    <div class="relative w-full sm:w-72">
+                        <input type="text" v-model="summarySearch" placeholder="Filter user-selected games..." class="w-full text-xs sm:text-sm pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                        <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+
+                    <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold self-end sm:self-center">
+                        Showing {{ filteredSummary.length }} of {{ analyzedGames.length }} games
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm whitespace-nowrap">
+                        <thead class="bg-slate-900 dark:bg-slate-950 text-white font-bold text-xs uppercase tracking-wider select-none">
+                            <tr>
+                                <th class="p-3.5 sm:p-4">Matchup (Away @ Home)</th>
+                                <th @click="toggleSort('summary', 't1')" class="p-3.5 sm:p-4 text-center cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5 justify-center">
+                                        <span>Tier 1</span>
+                                        <span class="text-[10px]" :class="summarySortKey === 't1' ? 'text-blue-400 font-black' : 'text-slate-500'">
+                                            {{ summarySortKey === 't1' ? (summarySortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th @click="toggleSort('summary', 't2')" class="p-3.5 sm:p-4 text-center cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5 justify-center">
+                                        <span>Tier 2</span>
+                                        <span class="text-[10px]" :class="summarySortKey === 't2' ? 'text-blue-400 font-black' : 'text-slate-500'">
+                                            {{ summarySortKey === 't2' ? (summarySortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th @click="toggleSort('summary', 'pick')" class="p-3.5 sm:p-4 cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <span>Final Recommendation</span>
+                                        <span class="text-[10px]" :class="summarySortKey === 'pick' ? 'text-blue-400 font-black' : 'text-slate-500'">
+                                            {{ summarySortKey === 'pick' ? (summarySortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="p-3.5 sm:p-4">Recommended Side</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                            <tr v-for="(res, i) in filteredSummary" :key="i" class="hover:bg-blue-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                                <td class="p-3.5 sm:p-4 font-bold text-slate-900 dark:text-white">
+                                    <div class="flex items-center gap-2">
+                                        <img v-if="res.roadInfo.logoUrl" :src="res.roadInfo.logoUrl" :alt="res.road" class="w-5 h-5 logo-img" @error="onImgError" />
+                                        <span>{{ res.road }}</span>
+                                        <span class="text-slate-400 dark:text-slate-600 font-normal">@</span>
+                                        <img v-if="res.homeInfo.logoUrl" :src="res.homeInfo.logoUrl" :alt="res.home" class="w-5 h-5 logo-img" @error="onImgError" />
+                                        <span>{{ res.home }}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3.5 sm:p-4 text-center font-black text-slate-800 dark:text-slate-200">{{ res.t1Text }}</td>
+                                <td class="p-3.5 sm:p-4 text-center font-black text-slate-800 dark:text-slate-200">{{ res.t2Text }}</td>
+                                <td class="p-3.5 sm:p-4">
+                                    <span class="px-2.5 py-1 rounded-md text-xs font-black inline-block" :class="getResultBadgeColor(res.finalPick)">
+                                        {{ res.finalPick }}
+                                    </span>
+                                </td>
+                                <td class="p-3.5 sm:p-4 font-black text-blue-900 dark:text-blue-400">{{ res.recommendedSide }}</td>
+                            </tr>
+                            <tr v-if="filteredSummary.length === 0">
+                                <td colspan="5" class="p-8 text-center text-slate-400 dark:text-slate-500 italic">
+                                    No user-selected games evaluated yet. Select a matchup in "Matchup Analyzer" to automatically add it here.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: Master Classification Summary -->
+            <div v-show="activeTab === 'batch'" class="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3 bg-emerald-50/40 dark:bg-emerald-950/20">
+                    <div class="relative w-full sm:w-72">
+                        <input type="text" v-model="batchSearch" placeholder="Filter Master Classification Summary..." class="w-full text-xs sm:text-sm pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" />
+                        <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+
+                    <div class="text-xs text-slate-600 dark:text-slate-400 font-semibold self-end sm:self-center">
+                        Showing {{ filteredBatchSummary.length }} of {{ batchSlateGames.length }} total slate games
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm whitespace-nowrap">
+                        <thead class="bg-slate-900 dark:bg-slate-950 text-white font-bold text-xs uppercase tracking-wider select-none">
+                            <tr>
+                                <th class="p-3.5 sm:p-4">Matchup (Away @ Home)</th>
+                                <th @click="toggleSort('batch', 't1')" class="p-3.5 sm:p-4 text-center cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5 justify-center">
+                                        <span>Tier 1</span>
+                                        <span class="text-[10px]" :class="batchSortKey === 't1' ? 'text-emerald-400 font-black' : 'text-slate-500'">
+                                            {{ batchSortKey === 't1' ? (batchSortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th @click="toggleSort('batch', 't2')" class="p-3.5 sm:p-4 text-center cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5 justify-center">
+                                        <span>Tier 2</span>
+                                        <span class="text-[10px]" :class="batchSortKey === 't2' ? 'text-emerald-400 font-black' : 'text-slate-500'">
+                                            {{ batchSortKey === 't2' ? (batchSortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th @click="toggleSort('batch', 'pick')" class="p-3.5 sm:p-4 cursor-pointer hover:bg-slate-800 dark:hover:bg-slate-900 transition-colors">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <span>Final Recommendation</span>
+                                        <span class="text-[10px]" :class="batchSortKey === 'pick' ? 'text-emerald-400 font-black' : 'text-slate-500'">
+                                            {{ batchSortKey === 'pick' ? (batchSortAsc ? '▲' : '▼') : '↕' }}
+                                        </span>
+                                    </div>
+                                </th>
+                                <th class="p-3.5 sm:p-4">Recommended Side</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                            <tr v-for="(res, i) in filteredBatchSummary" :key="i" class="hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-colors">
+                                <td class="p-3.5 sm:p-4 font-bold text-slate-900 dark:text-white">
+                                    <div class="flex items-center gap-2">
+                                        <img v-if="res.roadInfo.logoUrl" :src="res.roadInfo.logoUrl" :alt="res.road" class="w-5 h-5 logo-img" @error="onImgError" />
+                                        <span>{{ res.road }}</span>
+                                        <span class="text-slate-400 dark:text-slate-600 font-normal">@</span>
+                                        <img v-if="res.homeInfo.logoUrl" :src="res.homeInfo.logoUrl" :alt="res.home" class="w-5 h-5 logo-img" @error="onImgError" />
+                                        <span>{{ res.home }}</span>
+                                    </div>
+                                </td>
+                                <td class="p-3.5 sm:p-4 text-center font-black text-slate-800 dark:text-slate-200">{{ res.t1Text }}</td>
+                                <td class="p-3.5 sm:p-4 text-center font-black text-slate-800 dark:text-slate-200">{{ res.t2Text }}</td>
+                                <td class="p-3.5 sm:p-4">
+                                    <span class="px-2.5 py-1 rounded-md text-xs font-black inline-block" :class="getResultBadgeColor(res.finalPick)">
+                                        {{ res.finalPick }}
+                                    </span>
+                                </td>
+                                <td class="p-3.5 sm:p-4 font-black text-blue-900 dark:text-blue-400">{{ res.recommendedSide }}</td>
+                            </tr>
+                            <tr v-if="filteredBatchSummary.length === 0">
+                                <td colspan="5" class="p-8 text-center text-slate-400 dark:text-slate-500 italic">
+                                    No NBA games found matching your filter.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Betting Disclaimer -->
+    <footer class="mt-8 pt-4 pb-2 border-t border-slate-200 dark:border-slate-800 text-center transition-colors">
+        <p class="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 max-w-3xl mx-auto leading-relaxed">
+            <strong>Betting Disclaimer:</strong> For informational, educational, and analytical purposes only. Quantitative models, edge calibration, and consensus outputs do not guarantee winning wagers. Sports betting involves substantial financial risk and should only be conducted legally and responsibly. If you or someone you know has a gambling problem and needs support, call <span class="font-bold text-slate-500 dark:text-slate-400">1-800-GAMBLER</span> or visit your state's problem gambling support council.
+        </p>
+    </footer>
+
+</div>
+
+<!-- Un-cloak fallback safeguard -->
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const el = document.getElementById('app');
+            if (el && el.hasAttribute('v-cloak')) {
+                el.removeAttribute('v-cloak');
+            }
+        }, 1200);
+    });
+</script>
+
+<script>
+    const { createApp } = Vue;
+
+    // Built-in fallback snapshot from the linked NBA Spreads Google Sheet
+    const BUILTIN_NBA_CSV = `Last updated: 10/20/2026, 1:33:30 PM
+lineopen,line,road,home,linesag,linesage,linesagp,linesaggm,linedoi,linemoore,linelogic,linedunkel,linepower,linedok,linepugh,linedonc,linetalis,linemassey,lineespn,lineavg,std,line_avgdiff,lineca
+2,-2,Boston,Detroit,1.56,1.56,1.56,1.56,-3.49,4.63,,,,-0.82,2.77,1.6,1.91,2.08,0.674010082,1.353385391,1.890194289,-6.706770782,-0.060114501
+4,4.5,Philadelphia,New York,2.67,2.67,2.67,2.67,1.15,9.83,,,,2.54,4.26,3.4,11.92,10.94,1.002775226,4.517136556,3.754363722,0.0771145014,3.14391701
+2.5,1,Oklahoma City,San Antonio,1.52,1.52,1.52,1.52,-0.01,4.6,,,,4.11,1.52,3,1.21,1.98,0.8233904526,1.947183881,1.270723087,0.947183881,-1.177114173`;
+
+    // 30 NBA Teams Database (with ESPN Logo Slugs, Abbreviations, and Conferences)
+    const NBA_TEAMS = {
+        "atlanta": { name: "Atlanta", fullName: "Atlanta Hawks", abbr: "ATL", slug: "atl", conf: "Eastern", div: "Southeast" },
+        "atlanta hawks": { name: "Atlanta", fullName: "Atlanta Hawks", abbr: "ATL", slug: "atl", conf: "Eastern", div: "Southeast" },
+        "hawks": { name: "Atlanta", fullName: "Atlanta Hawks", abbr: "ATL", slug: "atl", conf: "Eastern", div: "Southeast" },
+
+        "boston": { name: "Boston", fullName: "Boston Celtics", abbr: "BOS", slug: "bos", conf: "Eastern", div: "Atlantic" },
+        "boston celtics": { name: "Boston", fullName: "Boston Celtics", abbr: "BOS", slug: "bos", conf: "Eastern", div: "Atlantic" },
+        "celtics": { name: "Boston", fullName: "Boston Celtics", abbr: "BOS", slug: "bos", conf: "Eastern", div: "Atlantic" },
+
+        "brooklyn": { name: "Brooklyn", fullName: "Brooklyn Nets", abbr: "BKN", slug: "bkn", conf: "Eastern", div: "Atlantic" },
+        "brooklyn nets": { name: "Brooklyn", fullName: "Brooklyn Nets", abbr: "BKN", slug: "bkn", conf: "Eastern", div: "Atlantic" },
+        "nets": { name: "Brooklyn", fullName: "Brooklyn Nets", abbr: "BKN", slug: "bkn", conf: "Eastern", div: "Atlantic" },
+
+        "charlotte": { name: "Charlotte", fullName: "Charlotte Hornets", abbr: "CHA", slug: "cha", conf: "Eastern", div: "Southeast" },
+        "charlotte hornets": { name: "Charlotte", fullName: "Charlotte Hornets", abbr: "CHA", slug: "cha", conf: "Eastern", div: "Southeast" },
+        "hornets": { name: "Charlotte", fullName: "Charlotte Hornets", abbr: "CHA", slug: "cha", conf: "Eastern", div: "Southeast" },
+
+        "chicago": { name: "Chicago", fullName: "Chicago Bulls", abbr: "CHI", slug: "chi", conf: "Eastern", div: "Central" },
+        "chicago bulls": { name: "Chicago", fullName: "Chicago Bulls", abbr: "CHI", slug: "chi", conf: "Eastern", div: "Central" },
+        "bulls": { name: "Chicago", fullName: "Chicago Bulls", abbr: "CHI", slug: "chi", conf: "Eastern", div: "Central" },
+
+        "cleveland": { name: "Cleveland", fullName: "Cleveland Cavaliers", abbr: "CLE", slug: "cle", conf: "Eastern", div: "Central" },
+        "cleveland cavaliers": { name: "Cleveland", fullName: "Cleveland Cavaliers", abbr: "CLE", slug: "cle", conf: "Eastern", div: "Central" },
+        "cavaliers": { name: "Cleveland", fullName: "Cleveland Cavaliers", abbr: "CLE", slug: "cle", conf: "Eastern", div: "Central" },
+        "cavs": { name: "Cleveland", fullName: "Cleveland Cavaliers", abbr: "CLE", slug: "cle", conf: "Eastern", div: "Central" },
+
+        "dallas": { name: "Dallas", fullName: "Dallas Mavericks", abbr: "DAL", slug: "dal", conf: "Western", div: "Southwest" },
+        "dallas mavericks": { name: "Dallas", fullName: "Dallas Mavericks", abbr: "DAL", slug: "dal", conf: "Western", div: "Southwest" },
+        "mavericks": { name: "Dallas", fullName: "Dallas Mavericks", abbr: "DAL", slug: "dal", conf: "Western", div: "Southwest" },
+
+        "denver": { name: "Denver", fullName: "Denver Nuggets", abbr: "DEN", slug: "den", conf: "Western", div: "Northwest" },
+        "denver nuggets": { name: "Denver", fullName: "Denver Nuggets", abbr: "DEN", slug: "den", conf: "Western", div: "Northwest" },
+        "nuggets": { name: "Denver", fullName: "Denver Nuggets", abbr: "DEN", slug: "den", conf: "Western", div: "Northwest" },
+
+        "detroit": { name: "Detroit", fullName: "Detroit Pistons", abbr: "DET", slug: "det", conf: "Eastern", div: "Central" },
+        "detroit pistons": { name: "Detroit", fullName: "Detroit Pistons", abbr: "DET", slug: "det", conf: "Eastern", div: "Central" },
+        "pistons": { name: "Detroit", fullName: "Detroit Pistons", abbr: "DET", slug: "det", conf: "Eastern", div: "Central" },
+
+        "golden state": { name: "Golden State", fullName: "Golden State Warriors", abbr: "GSW", slug: "gs", conf: "Western", div: "Pacific" },
+        "golden st": { name: "Golden State", fullName: "Golden State Warriors", abbr: "GSW", slug: "gs", conf: "Western", div: "Pacific" },
+        "golden state warriors": { name: "Golden State", fullName: "Golden State Warriors", abbr: "GSW", slug: "gs", conf: "Western", div: "Pacific" },
+        "warriors": { name: "Golden State", fullName: "Golden State Warriors", abbr: "GSW", slug: "gs", conf: "Western", div: "Pacific" },
+
+        "houston": { name: "Houston", fullName: "Houston Rockets", abbr: "HOU", slug: "hou", conf: "Western", div: "Southwest" },
+        "houston rockets": { name: "Houston", fullName: "Houston Rockets", abbr: "HOU", slug: "hou", conf: "Western", div: "Southwest" },
+        "rockets": { name: "Houston", fullName: "Houston Rockets", abbr: "HOU", slug: "hou", conf: "Western", div: "Southwest" },
+
+        "indiana": { name: "Indiana", fullName: "Indiana Pacers", abbr: "IND", slug: "ind", conf: "Eastern", div: "Central" },
+        "indiana pacers": { name: "Indiana", fullName: "Indiana Pacers", abbr: "IND", slug: "ind", conf: "Eastern", div: "Central" },
+        "pacers": { name: "Indiana", fullName: "Indiana Pacers", abbr: "IND", slug: "ind", conf: "Eastern", div: "Central" },
+
+        "la clippers": { name: "LA Clippers", fullName: "LA Clippers", abbr: "LAC", slug: "lac", conf: "Western", div: "Pacific" },
+        "l a clippers": { name: "LA Clippers", fullName: "LA Clippers", abbr: "LAC", slug: "lac", conf: "Western", div: "Pacific" },
+        "los angeles clippers": { name: "LA Clippers", fullName: "LA Clippers", abbr: "LAC", slug: "lac", conf: "Western", div: "Pacific" },
+        "clippers": { name: "LA Clippers", fullName: "LA Clippers", abbr: "LAC", slug: "lac", conf: "Western", div: "Pacific" },
+
+        "la lakers": { name: "LA Lakers", fullName: "Los Angeles Lakers", abbr: "LAL", slug: "lal", conf: "Western", div: "Pacific" },
+        "l a lakers": { name: "LA Lakers", fullName: "Los Angeles Lakers", abbr: "LAL", slug: "lal", conf: "Western", div: "Pacific" },
+        "los angeles lakers": { name: "LA Lakers", fullName: "Los Angeles Lakers", abbr: "LAL", slug: "lal", conf: "Western", div: "Pacific" },
+        "los angeles": { name: "LA Lakers", fullName: "Los Angeles Lakers", abbr: "LAL", slug: "lal", conf: "Western", div: "Pacific" },
+        "lakers": { name: "LA Lakers", fullName: "Los Angeles Lakers", abbr: "LAL", slug: "lal", conf: "Western", div: "Pacific" },
+
+        "memphis": { name: "Memphis", fullName: "Memphis Grizzlies", abbr: "MEM", slug: "mem", conf: "Western", div: "Southwest" },
+        "memphis grizzlies": { name: "Memphis", fullName: "Memphis Grizzlies", abbr: "MEM", slug: "mem", conf: "Western", div: "Southwest" },
+        "grizzlies": { name: "Memphis", fullName: "Memphis Grizzlies", abbr: "MEM", slug: "mem", conf: "Western", div: "Southwest" },
+
+        "miami": { name: "Miami", fullName: "Miami Heat", abbr: "MIA", slug: "mia", conf: "Eastern", div: "Southeast" },
+        "miami heat": { name: "Miami", fullName: "Miami Heat", abbr: "MIA", slug: "mia", conf: "Eastern", div: "Southeast" },
+        "heat": { name: "Miami", fullName: "Miami Heat", abbr: "MIA", slug: "mia", conf: "Eastern", div: "Southeast" },
+
+        "milwaukee": { name: "Milwaukee", fullName: "Milwaukee Bucks", abbr: "MIL", slug: "mil", conf: "Eastern", div: "Central" },
+        "milwaukee bucks": { name: "Milwaukee", fullName: "Milwaukee Bucks", abbr: "MIL", slug: "mil", conf: "Eastern", div: "Central" },
+        "bucks": { name: "Milwaukee", fullName: "Milwaukee Bucks", abbr: "MIL", slug: "mil", conf: "Eastern", div: "Central" },
+
+        "minnesota": { name: "Minnesota", fullName: "Minnesota Timberwolves", abbr: "MIN", slug: "min", conf: "Western", div: "Northwest" },
+        "minnesota timberwolves": { name: "Minnesota", fullName: "Minnesota Timberwolves", abbr: "MIN", slug: "min", conf: "Western", div: "Northwest" },
+        "timberwolves": { name: "Minnesota", fullName: "Minnesota Timberwolves", abbr: "MIN", slug: "min", conf: "Western", div: "Northwest" },
+
+        "new orleans": { name: "New Orleans", fullName: "New Orleans Pelicans", abbr: "NOP", slug: "no", conf: "Western", div: "Southwest" },
+        "new orleans pelicans": { name: "New Orleans", fullName: "New Orleans Pelicans", abbr: "NOP", slug: "no", conf: "Western", div: "Southwest" },
+        "pelicans": { name: "New Orleans", fullName: "New Orleans Pelicans", abbr: "NOP", slug: "no", conf: "Western", div: "Southwest" },
+
+        "new york": { name: "New York", fullName: "New York Knicks", abbr: "NYK", slug: "ny", conf: "Eastern", div: "Atlantic" },
+        "ny knicks": { name: "New York", fullName: "New York Knicks", abbr: "NYK", slug: "ny", conf: "Eastern", div: "Atlantic" },
+        "new york knicks": { name: "New York", fullName: "New York Knicks", abbr: "NYK", slug: "ny", conf: "Eastern", div: "Atlantic" },
+        "knicks": { name: "New York", fullName: "New York Knicks", abbr: "NYK", slug: "ny", conf: "Eastern", div: "Atlantic" },
+
+        "oklahoma city": { name: "Oklahoma City", fullName: "Oklahoma City Thunder", abbr: "OKC", slug: "okc", conf: "Western", div: "Northwest" },
+        "okla city": { name: "Oklahoma City", fullName: "Oklahoma City Thunder", abbr: "OKC", slug: "okc", conf: "Western", div: "Northwest" },
+        "oklahoma city thunder": { name: "Oklahoma City", fullName: "Oklahoma City Thunder", abbr: "OKC", slug: "okc", conf: "Western", div: "Northwest" },
+        "thunder": { name: "Oklahoma City", fullName: "Oklahoma City Thunder", abbr: "OKC", slug: "okc", conf: "Western", div: "Northwest" },
+
+        "orlando": { name: "Orlando", fullName: "Orlando Magic", abbr: "ORL", slug: "orl", conf: "Eastern", div: "Southeast" },
+        "orlando magic": { name: "Orlando", fullName: "Orlando Magic", abbr: "ORL", slug: "orl", conf: "Eastern", div: "Southeast" },
+        "magic": { name: "Orlando", fullName: "Orlando Magic", abbr: "ORL", slug: "orl", conf: "Eastern", div: "Southeast" },
+
+        "philadelphia": { name: "Philadelphia", fullName: "Philadelphia 76ers", abbr: "PHI", slug: "phi", conf: "Eastern", div: "Atlantic" },
+        "phila": { name: "Philadelphia", fullName: "Philadelphia 76ers", abbr: "PHI", slug: "phi", conf: "Eastern", div: "Atlantic" },
+        "philadelphia 76ers": { name: "Philadelphia", fullName: "Philadelphia 76ers", abbr: "PHI", slug: "phi", conf: "Eastern", div: "Atlantic" },
+        "76ers": { name: "Philadelphia", fullName: "Philadelphia 76ers", abbr: "PHI", slug: "phi", conf: "Eastern", div: "Atlantic" },
+        "sixers": { name: "Philadelphia", fullName: "Philadelphia 76ers", abbr: "PHI", slug: "phi", conf: "Eastern", div: "Atlantic" },
+
+        "phoenix": { name: "Phoenix", fullName: "Phoenix Suns", abbr: "PHX", slug: "phx", conf: "Western", div: "Pacific" },
+        "phoenix suns": { name: "Phoenix", fullName: "Phoenix Suns", abbr: "PHX", slug: "phx", conf: "Western", div: "Pacific" },
+        "suns": { name: "Phoenix", fullName: "Phoenix Suns", abbr: "PHX", slug: "phx", conf: "Western", div: "Pacific" },
+
+        "portland": { name: "Portland", fullName: "Portland Trail Blazers", abbr: "POR", slug: "por", conf: "Western", div: "Northwest" },
+        "portland trail blazers": { name: "Portland", fullName: "Portland Trail Blazers", abbr: "POR", slug: "por", conf: "Western", div: "Northwest" },
+        "trail blazers": { name: "Portland", fullName: "Portland Trail Blazers", abbr: "POR", slug: "por", conf: "Western", div: "Northwest" },
+        "blazers": { name: "Portland", fullName: "Portland Trail Blazers", abbr: "POR", slug: "por", conf: "Western", div: "Northwest" },
+
+        "sacramento": { name: "Sacramento", fullName: "Sacramento Kings", abbr: "SAC", slug: "sac", conf: "Western", div: "Pacific" },
+        "sacramento kings": { name: "Sacramento", fullName: "Sacramento Kings", abbr: "SAC", slug: "sac", conf: "Western", div: "Pacific" },
+        "kings": { name: "Sacramento", fullName: "Sacramento Kings", abbr: "SAC", slug: "sac", conf: "Western", div: "Pacific" },
+
+        "san antonio": { name: "San Antonio", fullName: "San Antonio Spurs", abbr: "SAS", slug: "sa", conf: "Western", div: "Southwest" },
+        "san antonio spurs": { name: "San Antonio", fullName: "San Antonio Spurs", abbr: "SAS", slug: "sa", conf: "Western", div: "Southwest" },
+        "spurs": { name: "San Antonio", fullName: "San Antonio Spurs", abbr: "SAS", slug: "sa", conf: "Western", div: "Southwest" },
+
+        "toronto": { name: "Toronto", fullName: "Toronto Raptors", abbr: "TOR", slug: "tor", conf: "Eastern", div: "Atlantic" },
+        "toronto raptors": { name: "Toronto", fullName: "Toronto Raptors", abbr: "TOR", slug: "tor", conf: "Eastern", div: "Atlantic" },
+        "raptors": { name: "Toronto", fullName: "Toronto Raptors", abbr: "TOR", slug: "tor", conf: "Eastern", div: "Atlantic" },
+
+        "utah": { name: "Utah", fullName: "Utah Jazz", abbr: "UTA", slug: "utah", conf: "Western", div: "Northwest" },
+        "utah jazz": { name: "Utah", fullName: "Utah Jazz", abbr: "UTA", slug: "utah", conf: "Western", div: "Northwest" },
+        "jazz": { name: "Utah", fullName: "Utah Jazz", abbr: "UTA", slug: "utah", conf: "Western", div: "Northwest" },
+
+        "washington": { name: "Washington", fullName: "Washington Wizards", abbr: "WAS", slug: "wsh", conf: "Eastern", div: "Southeast" },
+        "washington wizards": { name: "Washington", fullName: "Washington Wizards", abbr: "WAS", slug: "wsh", conf: "Eastern", div: "Southeast" },
+        "wizards": { name: "Washington", fullName: "Washington Wizards", abbr: "WAS", slug: "wsh", conf: "Eastern", div: "Southeast" }
+    };
+
+    const SORTED_TEAM_KEYS = Object.keys(NBA_TEAMS).sort((a, b) => b.length - a.length);
+
+    createApp({
+        data() {
+            return {
+                dataLoaded: false,
+                isLoading: true,
+                loadError: null,
+                sheetUpdatedText: '',
+                games: [],
+                analyzedGames: [],
+                batchSlateGames: [],
+                activeTab: 'input',
+                
+                selectedGameId: '',
+                latestResult: null,
+                showPasteBox: false,
+                pastedText: '',
+                summarySearch: '',
+                batchSearch: '',
+
+                // Table Sorting State
+                summarySortKey: '',
+                summarySortAsc: true,
+                batchSortKey: '',
+                batchSortAsc: true,
+
+                // Validated NBA Model Tier Mappings
+                tiers: {
+                    // Tier 1: Elite Ensembles & Efficiency Engines
+                    t1: ['lineca', 'lineespn', 'linedonc', 'linemassey', 'linedok'],
+                    // Tier 2: High-Performance Predictive Quants
+                    t2: ['linesagp', 'linesaggm', 'linesag', 'linesage', 'linelogic', 'linepower'],
+                    // Tier 3: Linear & Matrix Benchmark Controls
+                    t3: ['lineavg', 'linepugh', 'linetalis'],
+                    // Tier 4: Informational Only (Do NOT trigger bets/leans)
+                    t4: ['linemoore', 'linedunkel'],
+                    // Tier 5: Strict Exclusions (Discard completely)
+                    t5: ['linedoi']
+                }
+            }
+        },
+        watch: {
+            selectedGameId(newVal) {
+                if (newVal !== '' && newVal !== null && newVal !== undefined) {
+                    this.runAnalysis();
+                }
+            }
+        },
+        computed: {
+            selectedGame() {
+                if (this.selectedGameId === '') return null;
+                return this.games.find(g => g.id === this.selectedGameId) || null;
+            },
+            filteredSummary() {
+                let list = this.analyzedGames;
+                if (this.summarySearch.trim()) {
+                    const q = this.summarySearch.toLowerCase();
+                    list = list.filter(g => 
+                        (g.matchup && g.matchup.toLowerCase().includes(q)) || 
+                        (g.finalPick && g.finalPick.toLowerCase().includes(q)) || 
+                        (g.recommendedSide && g.recommendedSide.toLowerCase().includes(q))
+                    );
+                }
+                return this.sortList(list, this.summarySortKey, this.summarySortAsc);
+            },
+            filteredBatchSummary() {
+                let list = this.batchSlateGames;
+                if (this.batchSearch.trim()) {
+                    const q = this.batchSearch.toLowerCase();
+                    list = list.filter(g => 
+                        (g.matchup && g.matchup.toLowerCase().includes(q)) || 
+                        (g.finalPick && g.finalPick.toLowerCase().includes(q)) || 
+                        (g.recommendedSide && g.recommendedSide.toLowerCase().includes(q))
+                    );
+                }
+                return this.sortList(list, this.batchSortKey, this.batchSortAsc);
+            },
+            currentSlateStats() {
+                const targetList = this.activeTab === 'batch' ? this.batchSlateGames : this.analyzedGames;
+                if (!targetList || targetList.length === 0) return null;
+                let strong = 0, bet = 0, lean = 0;
+                targetList.forEach(g => {
+                    if (g.finalPick && g.finalPick.includes("STRONG BET")) strong++;
+                    else if (g.finalPick && g.finalPick.includes("BET")) bet++;
+                    else if (g.finalPick && g.finalPick.includes("LEAN")) lean++;
+                });
+                return { strong, bet, lean };
+            }
+        },
+        mounted() {
+            this.fetchData();
+        },
+        methods: {
+            onImgError(e) {
+                e.target.style.display = 'none';
+            },
+
+            getGameLine(game) {
+                if (!game) return null;
+                return game.sheetLine !== null ? game.sheetLine : game.sheetOpen;
+            },
+
+            formatStat(val) {
+                const num = parseFloat(val);
+                if (isNaN(num)) return 'N/A';
+                return num.toFixed(2);
+            },
+
+            // Formats Market Line in standard sportsbook favorite notation: e.g. "BOS -2.0" or "NYK -4.5"
+            formatMarketLine(game, homeMargin) {
+                if (!game || homeMargin === null || homeMargin === undefined || isNaN(homeMargin)) return 'N/A';
+                const margin = parseFloat(homeMargin);
+                const roadInfo = this.getTeamInfo(game.road);
+                const homeInfo = this.getTeamInfo(game.home);
+
+                if (Math.abs(margin) < 0.001) {
+                    return 'PK';
+                } else if (margin > 0) {
+                    return `${homeInfo.abbr} -${Math.abs(margin).toFixed(1)}`;
+                } else {
+                    return `${roadInfo.abbr} -${Math.abs(margin).toFixed(1)}`;
+                }
+            },
+
+            getLineTrend(game) {
+                if (!game || game.sheetOpen === null || game.sheetLine === null) return null;
+                const diff = game.sheetLine - game.sheetOpen;
+                const roadInfo = this.getTeamInfo(game.road);
+                const homeInfo = this.getTeamInfo(game.home);
+
+                if (Math.abs(diff) < 0.001) {
+                    return {
+                        arrow: '→',
+                        text: 'No Movement vs Open',
+                        badgeClass: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200',
+                        textClass: 'text-slate-400 dark:text-slate-500'
+                    };
+                }
+                if (diff > 0) {
+                    const pts = Math.abs(diff);
+                    return {
+                        arrow: '▲',
+                        text: `Moved ${pts.toFixed(1)} pts toward ${homeInfo.abbr}`,
+                        badgeClass: pts >= 3.5 ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300',
+                        textClass: 'text-emerald-600 dark:text-emerald-400'
+                    };
+                } else {
+                    const pts = Math.abs(diff);
+                    return {
+                        arrow: '▼',
+                        text: `Moved ${pts.toFixed(1)} pts toward ${roadInfo.abbr}`,
+                        badgeClass: pts >= 3.5 ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300',
+                        textClass: 'text-blue-600 dark:text-blue-400'
+                    };
+                }
+            },
+
+            toggleSort(tableType, key) {
+                if (tableType === 'summary') {
+                    if (this.summarySortKey === key) {
+                        this.summarySortAsc = !this.summarySortAsc;
+                    } else {
+                        this.summarySortKey = key;
+                        this.summarySortAsc = true;
+                    }
+                } else if (tableType === 'batch') {
+                    if (this.batchSortKey === key) {
+                        this.batchSortAsc = !this.batchSortAsc;
+                    } else {
+                        this.batchSortKey = key;
+                        this.batchSortAsc = true;
+                    }
+                }
+            },
+
+            getPickRank(pickStr) {
+                if (!pickStr) return 99;
+                const p = pickStr.toLowerCase();
+                if (p.includes('strong bet')) return 1;
+                if (p.includes('bet (tier 1)')) return 2;
+                if (p.includes('bet (tier 2)')) return 3;
+                if (p.includes('lean (tier 1)')) return 4;
+                if (p.includes('lean (tier 2)')) return 5;
+                if (p.includes('lean')) return 6;
+                return 7;
+            },
+
+            sortList(list, sortKey, sortAsc) {
+                if (!sortKey) return list;
+                return [...list].sort((a, b) => {
+                    if (sortKey === 't1') {
+                        const valA = a.t1Pct ?? -1;
+                        const valB = b.t1Pct ?? -1;
+                        return sortAsc ? valA - valB : valB - valA;
+                    }
+                    if (sortKey === 't2') {
+                        const valA = a.t2Pct ?? -1;
+                        const valB = b.t2Pct ?? -1;
+                        return sortAsc ? valA - valB : valB - valA;
+                    }
+                    if (sortKey === 'pick') {
+                        const rankA = this.getPickRank(a.finalPick);
+                        const rankB = this.getPickRank(b.finalPick);
+                        if (rankA !== rankB) {
+                            return sortAsc ? rankA - rankB : rankB - rankA;
+                        }
+                        return sortAsc ? (a.finalPick || '').localeCompare(b.finalPick || '') : (b.finalPick || '').localeCompare(a.finalPick || '');
+                    }
+                    return 0;
+                });
+            },
+
+            getTeamInfo(rawName) {
+                if (!rawName) return { name: "Unknown", abbr: "UNK", conf: "NBA", div: "", logoUrl: null };
+                const clean = rawName.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+                
+                if (NBA_TEAMS[clean]) {
+                    const t = NBA_TEAMS[clean];
+                    return {
+                        name: t.name,
+                        fullName: t.fullName,
+                        abbr: t.abbr,
+                        conf: t.conf,
+                        div: t.div,
+                        logoUrl: `https://a.espncdn.com/i/teamlogos/nba/500/${t.slug}.png`
+                    };
+                }
+
+                for (const key of SORTED_TEAM_KEYS) {
+                    const regex = new RegExp(`\\b${key}\\b`, 'i');
+                    if (regex.test(clean)) {
+                        const t = NBA_TEAMS[key];
+                        return {
+                            name: t.name,
+                            fullName: t.fullName,
+                            abbr: t.abbr,
+                            conf: t.conf,
+                            div: t.div,
+                            logoUrl: `https://a.espncdn.com/i/teamlogos/nba/500/${t.slug}.png`
+                        };
+                    }
+                }
+
+                return {
+                    name: rawName,
+                    fullName: rawName,
+                    abbr: rawName.slice(0, 3).toUpperCase(),
+                    conf: "NBA",
+                    div: "",
+                    logoUrl: null
+                };
+            },
+
+            loadBuiltInFallback() {
+                Papa.parse(BUILTIN_NBA_CSV, {
+                    header: false,
+                    skipEmptyLines: true,
+                    dynamicTyping: true,
+                    complete: (results) => {
+                        this.processMatrixRows(results.data);
+                        this.isLoading = false;
+                    }
+                });
+            },
+
+            fetchData() {
+                this.isLoading = true;
+                this.loadError = null;
+                
+                const sheetKey = atob('MW5PeTRTMjRlV3FPcGpJVWJ3N1prWndQS0hNLUdaY0huaVd5MjZxU0l3eUk=');
+                const callbackName = "gvizCallback_" + Math.floor(Math.random() * 1000000);
+
+                let isCompleted = false;
+
+                const cleanup = () => {
+                    clearTimeout(timer);
+                    delete window[callbackName];
+                    const scriptTag = document.getElementById(callbackName);
+                    if (scriptTag) scriptTag.remove();
+                };
+
+                const tryDirectCsvFallback = () => {
+                    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetKey}/export?format=csv`;
+                    Papa.parse(csvUrl, {
+                        download: true,
+                        header: false,
+                        skipEmptyLines: true,
+                        dynamicTyping: true,
+                        complete: (results) => {
+                            try {
+                                this.processMatrixRows(results.data);
+                                this.isLoading = false;
+                            } catch (e) {
+                                this.loadBuiltInFallback();
+                            }
+                        },
+                        error: () => {
+                            this.loadBuiltInFallback();
+                        }
+                    });
+                };
+
+                const timer = setTimeout(() => {
+                    if (this.isLoading && !isCompleted) {
+                        cleanup();
+                        tryDirectCsvFallback();
+                    }
+                }, 4000);
+
+                window[callbackName] = (response) => {
+                    isCompleted = true;
+                    cleanup();
+                    try {
+                        if (!response || !response.table) {
+                            throw new Error("Invalid table data returned by Google API.");
+                        }
+                        this.processGvizTable(response.table);
+                        this.isLoading = false;
+                    } catch (e) {
+                        tryDirectCsvFallback();
+                    }
+                };
+
+                const script = document.createElement("script");
+                script.id = callbackName;
+                script.src = `https://docs.google.com/spreadsheets/d/${sheetKey}/gviz/tq?tqx=responseHandler:${callbackName}`;
+                script.onerror = () => {
+                    cleanup();
+                    tryDirectCsvFallback();
+                };
+                document.head.appendChild(script);
+            },
+
+            processGvizTable(table) {
+                const matrix = [];
+                
+                if (table.cols && table.cols.length > 0) {
+                    const headerRow = table.cols.map(c => {
+                        return (c.label && c.label.trim()) ? c.label.trim() : (c.id || '');
+                    });
+                    matrix.push(headerRow);
+                }
+
+                if (table.rows) {
+                    table.rows.forEach(r => {
+                        if (!r || !r.c) return;
+                        const row = r.c.map(cell => {
+                            if (!cell) return null;
+                            if (cell.v !== null && cell.v !== undefined) return cell.v;
+                            if (cell.f !== null && cell.f !== undefined) return cell.f;
+                            return null;
+                        });
+                        matrix.push(row);
+                    });
+                }
+
+                this.processMatrixRows(matrix);
+            },
+
+            processMatrixRows(matrix) {
+                if (!matrix || matrix.length === 0) {
+                    throw new Error("No data received from spreadsheet.");
+                }
+
+                let headerIdx = -1;
+
+                for (let i = 0; i < Math.min(20, matrix.length); i++) {
+                    const firstCell = String(matrix[i][0] || '').trim();
+                    if (firstCell.toLowerCase().startsWith('last updated')) {
+                        this.sheetUpdatedText = firstCell;
+                    }
+                    const rowStr = matrix[i].map(v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    const hasRoad = rowStr.some(h => ['road', 'visitor', 'visitors', 'away', 'roadteam'].includes(h));
+                    const hasHome = rowStr.some(h => ['home', 'host', 'hometeam'].includes(h));
+                    const hasLine = rowStr.some(h => ['line', 'lineopen', 'spread', 'open'].includes(h));
+
+                    if ((hasRoad && hasHome) || (hasLine && (hasRoad || hasHome))) {
+                        headerIdx = i;
+                        break;
+                    }
+                }
+
+                let headers = [];
+                let dataRows = [];
+
+                if (headerIdx !== -1) {
+                    headers = matrix[headerIdx].map(v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    dataRows = matrix.slice(headerIdx + 1);
+                } else {
+                    const isRow0Data = !isNaN(parseFloat(matrix[0][0])) || !isNaN(parseFloat(matrix[0][1]));
+                    if (isRow0Data) {
+                        headers = ['lineopen', 'line', 'road', 'home'];
+                        dataRows = matrix;
+                    } else {
+                        headers = matrix[0].map(v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                        dataRows = matrix.slice(1);
+                    }
+                }
+
+                let roadIdx = headers.findIndex(h => ['road', 'visitor', 'visitors', 'away', 'roadteam'].includes(h));
+                let homeIdx = headers.findIndex(h => ['home', 'host', 'hometeam'].includes(h));
+                let openIdx = headers.findIndex(h => ['lineopen', 'open', 'opening', 'openline'].includes(h));
+                let lineIdx = headers.findIndex(h => h === 'line' || ['currentline', 'spread', 'curline'].includes(h));
+
+                if (openIdx === -1) openIdx = 0;
+                if (lineIdx === -1) lineIdx = 1;
+                if (roadIdx === -1) roadIdx = 2;
+                if (homeIdx === -1) homeIdx = 3;
+
+                const formatted = [];
+
+                dataRows.forEach(row => {
+                    if (!row || row.length < 4) return;
+                    
+                    const roadVal = row[roadIdx];
+                    const homeVal = row[homeIdx];
+                    if (!roadVal || !homeVal) return;
+                    if (String(homeVal).trim().toLowerCase() === 'home') return;
+
+                    const obj = {
+                        road: String(roadVal).trim(),
+                        home: String(homeVal).trim(),
+                        lineopen: row[openIdx],
+                        line: row[lineIdx]
+                    };
+
+                    headers.forEach((h, colIdx) => {
+                        if (h && colIdx !== roadIdx && colIdx !== homeIdx && colIdx !== openIdx && colIdx !== lineIdx) {
+                            obj[h] = row[colIdx];
+                        }
+                    });
+
+                    formatted.push(obj);
+                });
+
+                if (formatted.length === 0) {
+                    throw new Error("No valid NBA matchups could be parsed from data rows.");
+                }
+
+                this.processData(formatted);
+            },
+
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                Papa.parse(file, {
+                    header: false,
+                    skipEmptyLines: true,
+                    dynamicTyping: true,
+                    complete: (results) => {
+                        try {
+                            this.processMatrixRows(results.data);
+                        } catch (e) {
+                            this.loadError = e.message;
+                        }
+                    }
+                });
+            },
+
+            parsePastedText() {
+                if (!this.pastedText.trim()) return;
+                Papa.parse(this.pastedText.trim(), {
+                    header: false,
+                    skipEmptyLines: true,
+                    dynamicTyping: true,
+                    complete: (results) => {
+                        try {
+                            this.processMatrixRows(results.data);
+                        } catch (e) {
+                            this.loadError = e.message;
+                        }
+                    }
+                });
+            },
+
+            processData(data) {
+                this.games = data.map((row, idx) => {
+                    let rawOpen = row.lineopen;
+                    let sheetOpen = (rawOpen !== null && rawOpen !== undefined && rawOpen !== '') ? parseFloat(rawOpen) : null;
+
+                    let rawLine = row.line;
+                    let sheetLine = (rawLine !== null && rawLine !== undefined && rawLine !== '') ? parseFloat(rawLine) : null;
+
+                    return { 
+                        id: idx, 
+                        home: row.home, 
+                        road: row.road, 
+                        sheetOpen: isNaN(sheetOpen) ? null : sheetOpen,
+                        sheetLine: isNaN(sheetLine) ? null : sheetLine,
+                        raw: row 
+                    };
+                }).filter(g => g.home.toLowerCase() !== 'home'); 
+                
+                this.dataLoaded = true;
+                this.batchAnalyzeAll(false);
+                if (this.games.length > 0 && this.selectedGameId === '') {
+                    this.selectedGameId = this.games[0].id;
+                }
+            },
+
+            extractTierModels(modelsList, rawData) {
+                const models = [];
+                modelsList.forEach(m => {
+                    const key = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const val = parseFloat(rawData[key]);
+                    if (!isNaN(val)) models.push(val);
+                });
+                return models;
+            },
+            
+            analyzeTier(modelsList, rawData, liveLine, minBetEdge) {
+                const models = this.extractTierModels(modelsList, rawData);
+
+                if (models.length === 0) {
+                    return {
+                        pick: 'PASS',
+                        pct: 0,
+                        edge: 0,
+                        hit: 0,
+                        total: 0,
+                        activeTotal: 0,
+                        homeCovers: 0,
+                        awayCovers: 0,
+                        pushes: 0,
+                        side: null,
+                        avgProjection: null
+                    };
+                }
+
+                let homeCovers = 0, awayCovers = 0, pushes = 0;
+                let homeEdges = [], awayEdges = [];
+                let avgProjection = models.reduce((a, b) => a + b, 0) / models.length;
+
+                models.forEach(m => {
+                    const diff = m - liveLine;
+                    if (Math.abs(diff) < 0.0001) {
+                        pushes++;
+                    } else if (diff > 0) { 
+                        homeCovers++; 
+                        homeEdges.push(diff); 
+                    } else { 
+                        awayCovers++; 
+                        awayEdges.push(-diff); 
+                    }
+                });
+
+                const total = models.length;
+                const activeTotal = total - pushes;
+
+                if (activeTotal === 0) {
+                    return {
+                        pick: 'PASS',
+                        pct: 0,
+                        edge: 0,
+                        hit: 0,
+                        total,
+                        activeTotal: 0,
+                        homeCovers: 0,
+                        awayCovers: 0,
+                        pushes,
+                        side: null,
+                        avgProjection
+                    };
+                }
+
+                if (homeCovers > activeTotal / 2) {
+                    const edge = homeEdges.reduce((a, b) => a + b, 0) / homeEdges.length;
+                    const isUnanimous = (homeCovers === activeTotal);
+                    const pick = (isUnanimous && edge >= minBetEdge) ? 'BET' : 'LEAN';
+                    const pct = Math.round((homeCovers / activeTotal) * 100);
+                    return { pick, pct, edge, hit: homeCovers, total, activeTotal, homeCovers, awayCovers, pushes, side: 'HOME', avgProjection };
+                } else if (awayCovers > activeTotal / 2) {
+                    const edge = awayEdges.reduce((a, b) => a + b, 0) / awayEdges.length;
+                    const isUnanimous = (awayCovers === activeTotal);
+                    const pick = (isUnanimous && edge >= minBetEdge) ? 'BET' : 'LEAN';
+                    const pct = Math.round((awayCovers / activeTotal) * 100);
+                    return { pick, pct, edge, hit: awayCovers, total, activeTotal, homeCovers, awayCovers, pushes, side: 'AWAY', avgProjection };
+                } else {
+                    const topCovers = Math.max(homeCovers, awayCovers);
+                    const pct = Math.round((topCovers / activeTotal) * 100);
+                    return { pick: 'PASS', pct, edge: 0, hit: topCovers, total, activeTotal, homeCovers, awayCovers, pushes, side: null, avgProjection };
+                }
+            },
+
+            // Percentage-only display for Tier 1, Tier 2, and Tier 3
+            formatTierReadText(r) {
+                if (!r || r.activeTotal === 0) return "N/A";
+                return `${r.pct}%`;
+            },
+            
+            computeMatchup(game, targetLine) {
+                const line = parseFloat(targetLine);
+                const roadInfo = this.getTeamInfo(game.road);
+                const homeInfo = this.getTeamInfo(game.home);
+
+                // Tier 1: 100% agreement + avg edge >= 1.5 for BET; >50% for LEAN
+                const r1 = this.analyzeTier(this.tiers.t1, game.raw, line, 1.5);
+                // Tier 2: 100% agreement + avg edge >= 2.0 for BET; >50% for LEAN
+                const r2 = this.analyzeTier(this.tiers.t2, game.raw, line, 2.0);
+                // Tier 3: Linear & Matrix Benchmark Controls
+                const r3 = this.analyzeTier(this.tiers.t3, game.raw, line, 0.0);
+
+                const t1Pick = r1.pick;
+                const t2Pick = r2.pick;
+
+                let finalPick = 'PASS';
+                let activeSide = null;
+                let guardrailNotes = [];
+
+                const tierConflict = (r1.side && r2.side && r1.side !== r2.side && t1Pick !== 'PASS' && t2Pick !== 'PASS');
+
+                if (tierConflict) {
+                    finalPick = "PASS";
+                    activeSide = null;
+                    guardrailNotes.push("Tier 1 & Tier 2 Split on Opposite Sides");
+                } else if (t1Pick === 'BET' && t2Pick === 'BET' && r1.side === r2.side) {
+                    finalPick = "STRONG BET (Tiers 1 & 2)";
+                    activeSide = r1.side;
+                } else if (t1Pick === 'BET') {
+                    finalPick = "BET (Tier 1)";
+                    activeSide = r1.side;
+                } else if (t1Pick === 'LEAN') {
+                    if (t2Pick === 'BET' && r2.side === r1.side) {
+                        finalPick = "BET (Tier 2) / LEAN (Tier 1)";
+                    } else {
+                        finalPick = "LEAN (Tier 1)";
+                    }
+                    activeSide = r1.side;
+                } else if (t1Pick === 'PASS' && t2Pick !== 'PASS') {
+                    finalPick = `${t2Pick} (Tier 2) / Tier 1 Split`;
+                    activeSide = r2.side;
+                }
+
+                // Rule 3a: Tier 3 Unanimous Contradiction Sanity Check
+                const t3UnanimousOpposite = (
+                    activeSide &&
+                    r3.activeTotal > 0 &&
+                    r3.hit === r3.activeTotal &&
+                    r3.side &&
+                    r3.side !== activeSide
+                );
+
+                if (t3UnanimousOpposite) {
+                    guardrailNotes.push("Tier 3 Unanimous Contradiction Downgrade");
+                    if (finalPick.includes("STRONG BET") || finalPick.includes("BET")) {
+                        finalPick = finalPick.replace("STRONG BET", "LEAN").replace("BET", "LEAN") + " [T3 Downgrade]";
+                    } else if (finalPick.includes("LEAN")) {
+                        finalPick = "PASS";
+                        activeSide = null;
+                    }
+                }
+
+                // Rule 3b: Injury / Line Movement Guardrail (>= 3.5 pts away from lineopen against models' preferred side)
+                if (activeSide && game.sheetOpen !== null && !isNaN(game.sheetOpen)) {
+                    const adverseMove = activeSide === 'HOME'
+                        ? (game.sheetOpen - line)
+                        : (line - game.sheetOpen);
+
+                    if (adverseMove >= 3.5) {
+                        guardrailNotes.push(`Line moved ${adverseMove.toFixed(1)} pts vs Open against preferred side`);
+                        if (finalPick.includes("STRONG BET") || finalPick.includes("BET")) {
+                            finalPick = "LEAN (Tier 1 & 2 — Line Move Guardrail)";
+                        }
+                    }
+                }
+
+                const formatModelAvg = (avg) => {
+                    if (avg === null || isNaN(avg)) return "N/A";
+                    return this.formatMarketLine(game, avg);
+                };
+
+                const formatEdge = (r) => {
+                    if (!r || !r.side || !r.edge) return "0.0 pts";
+                    const abbr = r.side === 'HOME' ? homeInfo.abbr : roadInfo.abbr;
+                    return `+${r.edge.toFixed(2)} pts (${abbr})`;
+                };
+
+                // Recommended Side formatting: e.g. "Detroit +2.0", "San Antonio -1.0", or "No Consensus"
+                let recommendedSide = "No Consensus";
+                if (activeSide === 'HOME') {
+                    const spread = -line;
+                    const spreadStr = Math.abs(spread) < 0.001 ? 'PK' : `${spread > 0 ? '+' : '-'}${Math.abs(spread).toFixed(1)}`;
+                    recommendedSide = `${game.home} ${spreadStr}`;
+                } else if (activeSide === 'AWAY') {
+                    const spread = line;
+                    const spreadStr = Math.abs(spread) < 0.001 ? 'PK' : `${spread > 0 ? '+' : '-'}${Math.abs(spread).toFixed(1)}`;
+                    recommendedSide = `${game.road} ${spreadStr}`;
+                }
+
+                let eventLabel = `${roadInfo.conf} vs ${homeInfo.conf}`;
+                let eventBadgeStyle = "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
+
+                if (roadInfo.conf === homeInfo.conf) {
+                    eventLabel = `${homeInfo.conf} Conference${roadInfo.div === homeInfo.div && homeInfo.div ? ' • ' + homeInfo.div : ''}`;
+                    eventBadgeStyle = "bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-800";
+                }
+
+                return {
+                    matchup: `${game.road} @ ${game.home}`,
+                    road: game.road,
+                    home: game.home,
+                    roadInfo,
+                    homeInfo,
+                    eventLabel,
+                    eventBadgeStyle,
+                    t1Text: this.formatTierReadText(r1),
+                    t2Text: this.formatTierReadText(r2),
+                    t3Text: this.formatTierReadText(r3),
+                    t1Pct: r1.pct,
+                    t2Pct: r2.pct,
+                    t1AvgFormatted: formatModelAvg(r1.avgProjection),
+                    t2AvgFormatted: formatModelAvg(r2.avgProjection),
+                    t3AvgFormatted: formatModelAvg(r3.avgProjection),
+                    t1EdgeFormatted: formatEdge(r1),
+                    t2EdgeFormatted: formatEdge(r2),
+                    finalPick,
+                    recommendedSide,
+                    guardrailNote: guardrailNotes.join(' • ')
+                };
+            },
+
+            runAnalysis() {
+                if (!this.selectedGame) return;
+                const line = this.getGameLine(this.selectedGame);
+
+                if (line === null || isNaN(line)) {
+                    return;
+                }
+
+                const result = this.computeMatchup(this.selectedGame, line);
+                this.latestResult = result;
+
+                const existingIdx = this.analyzedGames.findIndex(g => g.matchup === result.matchup);
+                if (existingIdx > -1) {
+                    this.analyzedGames[existingIdx] = result;
+                } else {
+                    this.analyzedGames.unshift(result);
+                }
+
+                const batchIdx = this.batchSlateGames.findIndex(g => g.matchup === result.matchup);
+                if (batchIdx > -1) {
+                    this.batchSlateGames[batchIdx] = result;
+                }
+            },
+
+            batchAnalyzeAll(switchToTab = true) {
+                const batch = [];
+                this.games.forEach(game => {
+                    const line = this.getGameLine(game);
+                    if (line !== null && !isNaN(line)) {
+                        batch.push(this.computeMatchup(game, line));
+                    }
+                });
+                this.batchSlateGames = batch;
+                if (batch.length > 0 && !this.latestResult) {
+                    this.latestResult = batch[0];
+                }
+                if (switchToTab) {
+                    this.activeTab = 'batch';
+                }
+            },
+
+            getResultBorderColor(pick) {
+                if (pick.includes("STRONG BET")) return "border-emerald-500 ring-2 ring-emerald-500/20 dark:ring-emerald-500/30";
+                if (pick.includes("BET")) return "border-green-400 ring-2 ring-green-400/20 dark:ring-green-400/30";
+                if (pick.includes("LEAN")) return "border-blue-400 ring-2 ring-blue-400/20 dark:ring-blue-400/30";
+                return "border-slate-200 dark:border-slate-800";
+            },
+
+            getResultBadgeColor(pick) {
+                if (pick.includes("STRONG BET")) return "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800";
+                if (pick.includes("BET")) return "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-800";
+                if (pick.includes("LEAN")) return "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-800";
+                return "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700";
+            }
+        }
+    }).mount('#app');
+</script>
+
+</body>
+</html>
