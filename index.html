@@ -230,10 +230,6 @@
                         </span>
                     </button>
                 </div>
-                <div class="text-[10px] font-mono-num text-slate-400 flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
-                    <span>🕒</span>
-                    <span>Sorted by Tip-off</span>
-                </div>
             </div>
         </div>
 
@@ -289,33 +285,6 @@
                                     <span>Home: <strong class="text-slate-300">{{ game.home }}</strong></span>
                                 </div>
                             </div>
-
-                            <!-- Current Spread Pill -->
-                            <div class="text-right shrink-0">
-                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Current Line</span>
-                                <span class="text-xs font-bold font-mono-num px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 inline-block mt-0.5">
-                                    {{ formatFavoredLabel(game) }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Quick Reference Metric Pills -->
-                        <div class="px-3.5 py-2.5 bg-slate-900/90 border-b border-slate-800/60 flex flex-wrap items-center gap-1.5 text-[11px] font-mono-num">
-                            <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
-                                Open: <strong class="text-white">{{ formatMetric(game.raw.lineopen) }}</strong>
-                            </span>
-                            <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
-                                Current: <strong class="text-orange-400">{{ formatMetric(game.raw.line) }}</strong>
-                            </span>
-                            <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
-                                Avg: <strong class="text-sky-400">{{ formatMetric(game.raw.lineavg) }}</strong>
-                            </span>
-                            <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
-                                SD: <strong class="text-amber-300">{{ formatMetric(game.raw.std) }}</strong>
-                            </span>
-                            <span v-if="game.raw.line_avgdiff !== undefined && game.raw.line_avgdiff !== ''" class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">
-                                Diff: <strong class="text-emerald-400">{{ formatMetric(game.raw.line_avgdiff) }}</strong>
-                            </span>
                         </div>
 
                         <!-- Quantitative Delta Gatekeeper Signal Box -->
