@@ -215,25 +215,29 @@
                 </div>
 
                 <!-- Delta Threshold Filter Pills -->
-                <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <button 
-                            v-for="f in filterOptions" 
-                            :key="f.id"
-                            @click="quickFilter = f.id"
-                            class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
-                            :class="quickFilter === f.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
-                        >
-                            <span>{{ f.label }}</span>
-                            <span v-if="f.badge" class="px-1 py-0.1 text-[9px] font-mono-num rounded bg-slate-800 text-slate-400">
-                                {{ f.badge }}
-                            </span>
-                        </button>
-                    </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button 
+                        v-for="f in filterOptions" 
+                        :key="f.id"
+                        @click="quickFilter = f.id"
+                        class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                        :class="quickFilter === f.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
+                    >
+                        <span>{{ f.label }}</span>
+                        <span v-if="f.badge" class="px-1 py-0.1 text-[9px] font-mono-num rounded bg-slate-800 text-slate-400">
+                            {{ f.badge }}
+                        </span>
+                    </button>
+                </div>
+                <div class="text-[10px] font-mono-num text-slate-400 flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
+                    <span>🕒</span>
+                    <span>Sorted by Tip-off</span>
                 </div>
             </div>
+        </div>
 
-            <!-- Empty State -->
+        <!-- Empty State -->
             <div v-if="filteredGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🔍</div>
                 <div class="text-sm font-semibold text-slate-300">No NBA matchups match your filter.</div>
@@ -274,7 +278,12 @@
                                         NEUTRAL
                                     </span>
                                 </div>
-                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
+                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                                    <span v-if="getGameDisplayTime(game)" class="inline-flex items-center gap-1 text-amber-400 font-mono-num font-semibold text-[11px]">
+                                        <span>🕒</span>
+                                        <span>{{ getGameDisplayTime(game) }}</span>
+                                    </span>
+                                    <span v-if="getGameDisplayTime(game)" class="text-slate-600">•</span>
                                     <span>Away: <strong class="text-slate-300">{{ game.road }}</strong></span>
                                     <span>•</span>
                                     <span>Home: <strong class="text-slate-300">{{ game.home }}</strong></span>
@@ -644,8 +653,12 @@
                                         <span class="text-[10px] text-slate-400">{{ game.neutral == 1 ? 'vs.' : '@' }}</span>
                                         <span class="text-orange-400">{{ game.home }}</span>
                                     </div>
-                                    <div class="text-[10px] text-slate-400 font-mono-num">
-                                        Open: {{ formatMetric(game.raw.lineopen) }} | Avg: {{ formatMetric(game.raw.lineavg) }}
+                                    <div class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1.5 flex-wrap mt-0.5">
+                                        <span v-if="getGameDisplayTime(game)" class="text-amber-400 font-semibold">🕒 {{ getGameDisplayTime(game) }}</span>
+                                        <span v-if="getGameDisplayTime(game)" class="text-slate-600">|</span>
+                                        <span>Open: {{ formatMetric(game.raw.lineopen) }}</span>
+                                        <span>|</span>
+                                        <span>Avg: {{ formatMetric(game.raw.lineavg) }}</span>
                                     </div>
                                 </td>
 
@@ -1421,6 +1434,62 @@ createApp({
             return Number.isFinite(num) ? num : null;
         };
 
+        // --- Tip-off & Game Time Sorting Helpers ---
+        const parseTimeStringToTimestamp = (str) => {
+            if (!str) return null;
+            const cleaned = str.trim().toLowerCase();
+            const match = cleaned.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/);
+            if (!match) return null;
+            let hours = parseInt(match[1], 10);
+            const minutes = parseInt(match[2], 10);
+            const meridiem = match[3];
+
+            if (meridiem === 'pm' && hours < 12) hours += 12;
+            if (meridiem === 'am' && hours === 12) hours = 0;
+            if (!meridiem && hours >= 1 && hours <= 11) hours += 12;
+
+            const d = new Date();
+            d.setHours(hours, minutes, 0, 0);
+            return d.getTime();
+        };
+
+        const getGameTimestamp = (game) => {
+            if (!game) return 9999999999999;
+            if (game.timestamp && typeof game.timestamp === 'number') {
+                return game.timestamp;
+            }
+            const liveStatus = liveGameStatusMap.value[getGameKey(game)];
+            if (liveStatus && liveStatus.timestamp && typeof liveStatus.timestamp === 'number') {
+                return liveStatus.timestamp;
+            }
+            const rawTime = game.raw?.time || game.raw?.gametime || game.raw?.game_time || game.raw?.tipoff || game.raw?.tip;
+            if (rawTime) {
+                const parsed = parseTimeStringToTimestamp(String(rawTime));
+                if (parsed) return parsed;
+            }
+            return 9000000000000 + (game.id || 0);
+        };
+
+        const getGameDisplayTime = (game) => {
+            const st = getGameLiveStatus(game);
+            if (st && st.startTime) return st.startTime;
+            if (game.startTime) return game.startTime;
+            const rawTime = game.raw?.time || game.raw?.gametime || game.raw?.game_time || game.raw?.tipoff;
+            if (rawTime) return String(rawTime).trim();
+            return null;
+        };
+
+        const sortGamesByTime = (gameList) => {
+            return [...gameList].sort((a, b) => {
+                const timeA = getGameTimestamp(a);
+                const timeB = getGameTimestamp(b);
+                if (timeA !== timeB) {
+                    return timeA - timeB;
+                }
+                return (a.id || 0) - (b.id || 0);
+            });
+        };
+
         const formatMetric = (val) => {
             const num = parseNum(val);
             if (num === null) return '—';
@@ -1662,6 +1731,10 @@ createApp({
                 const road = r.road || r.Road || r.visitor || r.Visitor || r.away || r.Away || 'Away';
                 const neutral = parseNum(r.neutral) !== null ? parseNum(r.neutral) : 0;
                 
+                const rawTime = r.time || r.gametime || r.game_time || r.tipoff || r.tip;
+                const parsedTs = rawTime ? parseTimeStringToTimestamp(String(rawTime)) : null;
+                const formattedTime = rawTime ? String(rawTime).trim() : null;
+
                 const gameObj = {
                     id: idx,
                     home,
@@ -1670,7 +1743,9 @@ createApp({
                     raw: r,
                     liveLine: null,
                     showModels: false,
-                    result: null
+                    result: null,
+                    startTime: formattedTime,
+                    timestamp: parsedTs
                 };
                 analyzeGame(gameObj);
                 return gameObj;
@@ -2002,12 +2077,17 @@ createApp({
                 
                 let startTime = null;
                 let eventDateObj = null;
+                let gameTimestamp = null;
                 if (matchedEvent.date) {
                     try {
                         eventDateObj = new Date(matchedEvent.date);
-                        startTime = eventDateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        if (!isNaN(eventDateObj.getTime())) {
+                            gameTimestamp = eventDateObj.getTime();
+                            startTime = eventDateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        }
                     } catch (e) {
                         startTime = null;
+                        gameTimestamp = null;
                     }
                 }
 
@@ -2019,6 +2099,13 @@ createApp({
 
                 const key = getGameKey(g);
 
+                if (startTime) {
+                    g.startTime = startTime;
+                }
+                if (gameTimestamp) {
+                    g.timestamp = gameTimestamp;
+                }
+
                 liveGameStatusMap.value[key] = {
                     awayScore,
                     homeScore,
@@ -2027,6 +2114,7 @@ createApp({
                     clock: isCompleted ? 0 : (isLive ? clock : null),
                     period: (isLive || isCompleted) ? period : 0,
                     startTime,
+                    timestamp: gameTimestamp,
                     isLive,
                     isCompleted,
                     isPre
@@ -2122,7 +2210,7 @@ createApp({
                 list = list.filter(g => g.result && g.result.finalAction.includes('Noise Zone'));
             }
 
-            return list;
+            return sortGamesByTime(list);
         });
 
         const analyzedGames = computed(() => {
@@ -2152,10 +2240,11 @@ createApp({
 
         const summaryList = computed(() => {
             if (!analyzedGames.value) return [];
+            let list = analyzedGames.value;
             if (showOnlyActionable.value) {
-                return analyzedGames.value.filter(g => !g.result.finalAction.includes('PASS'));
+                list = analyzedGames.value.filter(g => !g.result.finalAction.includes('PASS'));
             }
-            return analyzedGames.value;
+            return sortGamesByTime(list);
         });
 
         const copySummaryToClipboard = () => {
@@ -2592,6 +2681,9 @@ createApp({
             formatBetSpread,
             getDeltaCharacteristic,
             getDeltaBadgeClass,
+            getGameTimestamp,
+            getGameDisplayTime,
+            sortGamesByTime,
             analyzeGame,
             fetchSheetData,
             fetchLiveScores,
