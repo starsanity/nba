@@ -67,15 +67,11 @@
                         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
                             NBA
                         </span>
-                        <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 hidden sm:inline">
-                            Delta Filter Active
-                        </span>
                     </div>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Delta Gatekeeper: Noise (&le;1.5) | Lean (2.0-3.5) | Strong Bet (&ge;4.0)</p>
                 </div>
             </div>
 
-            <!-- Live Game Count & Cloud Status Pill -->
+            <!-- Live Game Count & Shared Cloud Status Indicator -->
             <div class="flex items-center gap-1.5">
                 <button 
                     v-if="liveGamesCount > 0"
@@ -86,30 +82,29 @@
                     <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                     <span>{{ liveGamesCount }} LIVE</span>
                 </button>
-                <button
-                    @click="showSyncModal = true"
-                    class="px-2 py-1 rounded-lg text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 transition border cursor-pointer"
+                
+                <!-- Shared Cloud Status Badge -->
+                <div
+                    class="px-2 py-1 rounded-lg text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 border select-none"
                     :class="{
-                        'bg-emerald-950/60 border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/60': cloudSyncStatus === 'synced',
-                        'bg-amber-950/60 border-amber-700/60 text-amber-300 hover:bg-amber-900/60': cloudSyncStatus === 'connecting',
-                        'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700': cloudSyncStatus === 'offline'
+                        'bg-emerald-950/60 border-emerald-700/60 text-emerald-300': cloudSyncStatus === 'synced',
+                        'bg-amber-950/60 border-amber-700/60 text-amber-300': cloudSyncStatus === 'connecting',
+                        'bg-slate-800 border-slate-700 text-slate-400': cloudSyncStatus === 'offline' || cloudSyncStatus === 'local'
                     }"
-                    title="Multi-Device Cloud Sync Settings"
+                    title="All users & devices connect to the shared master ledger"
                 >
                     <span class="w-1.5 h-1.5 rounded-full"
                           :class="{
                               'bg-emerald-400 animate-pulse': cloudSyncStatus === 'synced',
                               'bg-amber-400 animate-ping': cloudSyncStatus === 'connecting',
-                              'bg-sky-400': cloudSyncStatus === 'local',
-                              'bg-slate-500': cloudSyncStatus === 'offline'
+                              'bg-slate-500': cloudSyncStatus === 'offline' || cloudSyncStatus === 'local'
                           }"></span>
-                    <span class="hidden sm:inline">
-                        {{ cloudSyncStatus === 'local' ? 'Local Mode' : 'Cloud Sync' }}
+                    <span class="hidden sm:inline">Shared Cloud Sync</span>
+                    <span class="text-[9px] font-mono-num uppercase px-1 rounded bg-slate-900/60 text-emerald-300">
+                        {{ cloudSyncStatus === 'synced' ? 'Live' : (cloudSyncStatus === 'connecting' ? 'Syncing' : 'Local') }}
                     </span>
-                    <span class="text-[9px] font-mono-num uppercase px-1 rounded bg-slate-900/60">
-                        {{ cloudSyncStatus === 'local' ? 'Device' : syncChannel }}
-                    </span>
-                </button>
+                </div>
+
                 <button
                     @click="fetchSheetData"
                     :disabled="loading"
@@ -215,25 +210,25 @@
                 </div>
 
                 <!-- Delta Threshold Filter Pills -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <button 
-                        v-for="f in filterOptions" 
-                        :key="f.id"
-                        @click="quickFilter = f.id"
-                        class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
-                        :class="quickFilter === f.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
-                    >
-                        <span>{{ f.label }}</span>
-                        <span v-if="f.badge" class="px-1 py-0.1 text-[9px] font-mono-num rounded bg-slate-800 text-slate-400">
-                            {{ f.badge }}
-                        </span>
-                    </button>
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button 
+                            v-for="f in filterOptions" 
+                            :key="f.id"
+                            @click="quickFilter = f.id"
+                            class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                            :class="quickFilter === f.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
+                        >
+                            <span>{{ f.label }}</span>
+                            <span v-if="f.badge !== undefined" class="px-1 py-0.1 text-[9px] font-mono-num rounded bg-slate-800 text-slate-400">
+                                {{ f.badge }}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Empty State -->
+            <!-- Empty State -->
             <div v-if="filteredGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🔍</div>
                 <div class="text-sm font-semibold text-slate-300">No NBA matchups match your filter.</div>
@@ -802,7 +797,7 @@
                 </div>
             </div>
 
-            <!-- Auto-Sync Status Bar -->
+            <!-- Unified Cloud Sync Status Bar -->
             <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
                 <div class="flex items-center gap-2.5">
                     <span class="relative flex h-2.5 w-2.5">
@@ -811,23 +806,18 @@
                     </span>
                     <div>
                         <div class="text-xs font-bold text-slate-200 flex items-center gap-2 flex-wrap">
-                            <span>Automatic Multi-Device Live Sync Active</span>
+                            <span>Unified Global Cloud Sync Active</span>
                             <span class="text-[10px] font-mono-num px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                Channel: {{ syncChannel }}
+                                Master Consensus Ledger
                             </span>
                         </div>
                         <div class="text-[11px] text-slate-400">
-                            Grades and live tracking sync seamlessly across your phone, tablet, and computer.
+                            All users and devices share the exact same real-time picks and historical win/loss record.
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button @click="showSyncModal = true" class="text-[10px] font-bold text-orange-400 hover:text-orange-300 underline font-mono-num">
-                        Device Sync Key ⚙️
-                    </button>
-                    <div v-if="lastScoreSyncTime" class="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                        {{ lastScoreSyncTime }}
-                    </div>
+                <div v-if="lastScoreSyncTime" class="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                    Last sync: {{ lastScoreSyncTime }}
                 </div>
             </div>
 
@@ -864,16 +854,6 @@
                         </button>
                     </div>
                 </div>
-
-                <div class="flex items-center gap-2">
-                    <button 
-                        @click="showResetConfirmModal = true"
-                        class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition cursor-pointer"
-                        title="Clear all saved Win/Loss/Push results"
-                    >
-                        Reset All History
-                    </button>
-                </div>
             </div>
 
             <!-- Graded Games Table -->
@@ -897,7 +877,6 @@
                                 <th class="py-3 px-3">Target Pick</th>
                                 <th class="py-3 px-3 text-center">Final Score</th>
                                 <th class="py-3 px-3 text-center">Outcome</th>
-                                <th class="py-3 px-3 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/70 text-xs">
@@ -949,23 +928,13 @@
                                     <span 
                                         class="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase"
                                         :class="{
-                                            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': item.grade === 'W',
-                                            'bg-rose-500/20 text-rose-300 border border-rose-500/40': item.grade === 'L',
-                                            'bg-amber-500/20 text-amber-300 border border-amber-500/40': item.grade === 'P'
+                                            'bg-emerald-500/20 text-emerald-300 border-emerald-500/40': item.grade === 'W',
+                                            'bg-rose-500/20 text-rose-300 border-rose-500/40': item.grade === 'L',
+                                            'bg-amber-500/20 text-amber-300 border-amber-500/40': item.grade === 'P'
                                         }"
                                     >
                                         {{ item.grade === 'W' ? 'WIN' : (item.grade === 'L' ? 'LOSS' : 'PUSH') }}
                                     </span>
-                                </td>
-
-                                <td class="py-3 px-3 text-center">
-                                    <button 
-                                        @click="clearSingleGradeKey(item.key)"
-                                        class="text-xs text-slate-500 hover:text-rose-400 transition cursor-pointer px-1.5 py-0.5"
-                                        title="Remove grade entry"
-                                    >
-                                        ✕
-                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -975,103 +944,6 @@
         </div>
 
     </main>
-
-    <!-- Multi-Device Cloud Sync Modal -->
-    <div v-if="showSyncModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">☁️</span>
-                    <div>
-                        <h3 class="text-sm font-bold text-white">Multi-Device Cloud Sync</h3>
-                        <p class="text-[11px] text-slate-400">Sync picks &amp; graded records across all your devices in real-time</p>
-                    </div>
-                </div>
-                <button @click="showSyncModal = false" class="text-slate-400 hover:text-white text-sm px-2 py-1">✕</button>
-            </div>
-
-            <!-- Sync Key Input -->
-            <div class="space-y-1.5">
-                <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Shared Sync Key / Channel
-                </label>
-                <div class="flex gap-2">
-                    <input 
-                        type="text" 
-                        v-model="tempSyncChannel" 
-                        placeholder="Enter channel key (e.g. main, my-picks)"
-                        class="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono-num text-slate-100 placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                    >
-                    <button 
-                        @click="applySyncChannel" 
-                        class="px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold transition cursor-pointer"
-                    >
-                        Switch
-                    </button>
-                </div>
-                <p class="text-[10px] text-slate-500">
-                    Enter this same Sync Key on your phone, laptop, or tablet to access and update the same historical ledger simultaneously.
-                </p>
-            </div>
-
-            <!-- Current Connected User ID -->
-            <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1 text-xs">
-                <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Authenticated Device ID:</span>
-                    <span class="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Connected
-                    </span>
-                </div>
-                <div class="font-mono-num text-[11px] text-slate-300 break-all select-all bg-slate-900 p-2 rounded border border-slate-800">
-                    {{ currentUserId || 'Connecting to secure cloud...' }}
-                </div>
-            </div>
-
-            <!-- Action buttons -->
-            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
-                <button 
-                    @click="copySyncKey" 
-                    class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer flex items-center gap-1.5"
-                >
-                    <span>📋</span>
-                    <span>{{ copySyncKeyText }}</span>
-                </button>
-                <button 
-                    @click="showSyncModal = false" 
-                    class="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer"
-                >
-                    Done
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirm Reset History Modal -->
-    <div v-if="showResetConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-            <div class="text-center space-y-2">
-                <div class="text-3xl">⚠️</div>
-                <h3 class="text-sm font-bold text-white">Reset Historical Cloud Ledger?</h3>
-                <p class="text-xs text-slate-400">
-                    This will permanently clear all graded outcomes for Sync Key "<strong class="text-orange-400">{{ syncChannel }}</strong>" across all synced devices.
-                </p>
-            </div>
-            <div class="flex items-center justify-center gap-2 pt-2">
-                <button 
-                    @click="showResetConfirmModal = false"
-                    class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
-                >
-                    Cancel
-                </button>
-                <button 
-                    @click="confirmClearAllGrades"
-                    class="px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer"
-                >
-                    Yes, Clear History
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Footer with Delta Gatekeeper & Model Tier Architecture -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
@@ -1099,7 +971,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
@@ -1126,11 +998,7 @@ createApp({
 
         const currentUserId = ref('');
         const cloudSyncStatus = ref('connecting');
-        const syncChannel = ref('main');
-        const tempSyncChannel = ref('main');
-        const showSyncModal = ref(false);
-        const showResetConfirmModal = ref(false);
-        const copySyncKeyText = ref('Copy Sync Key');
+        const syncChannel = ref('main'); // Permanent shared master channel for all users
 
         const games = ref([]);
         const loading = ref(false);
@@ -1403,7 +1271,6 @@ createApp({
             return Number.isFinite(num) ? num : null;
         };
 
-        // --- Tip-off & Game Time Sorting Helpers ---
         const parseTimeStringToTimestamp = (str) => {
             if (!str) return null;
             const cleaned = str.trim().toLowerCase();
@@ -1516,7 +1383,7 @@ createApp({
             return 'bg-slate-900 text-slate-400 border-slate-800 font-semibold';
         };
 
-        // --- Exact Analytical Delta Threshold Gatekeeper Engine ---
+        // --- Analytical Delta Threshold Gatekeeper Engine ---
         const analyzeGame = (game) => {
             const liveLine = parseNum(game.raw.line);
             game.liveLine = liveLine;
@@ -1597,10 +1464,6 @@ createApp({
                 primaryDelta = Math.max(t1.edge, t2.edge);
             }
 
-            // Delta Gatekeeper Evaluation:
-            // 0.0 - 1.5 pts: Pass / No Play (Noise Zone)
-            // 2.0 - 3.5 pts: Tier 2 / Lean (Solid analytical edge)
-            // >= 4.0 pts: Tier 1 / Strong Bet (High confidence)
             if (t1.dir !== 'None' && t1.dir !== 'Split' && t2.dir !== 'None' && t2.dir !== 'Split' && t1.dir !== t2.dir) {
                 finalAction = 'PASS (Conflicting Tiers)';
                 finalDir = 'None';
@@ -1621,7 +1484,6 @@ createApp({
                 }
             }
 
-            // Tier 3 Downgrade check
             if (finalDir !== 'None' && t3.status !== 'PASS' && t3.dir !== 'None' && t3.dir !== finalDir) {
                 t3Downgrade = true;
                 if (finalAction === 'STRONG BET') {
@@ -2093,9 +1955,6 @@ createApp({
                     liveInProgressCount++;
                 } else if (isPre) {
                     scheduledCount++;
-                    if (grades.value[key] && grades.value[key].auto) {
-                        clearSingleGradeKey(key);
-                    }
                 }
 
                 // Auto-grade completed final games
@@ -2309,52 +2168,6 @@ createApp({
             }
         };
 
-        const clearSingleGradeKey = async (key) => {
-            delete grades.value[key];
-            grades.value = { ...grades.value };
-
-            if (cloudSyncStatus.value === 'local' || !db || !auth?.currentUser) {
-                saveGradesToLocal();
-                return;
-            }
-
-            try {
-                const cleanKey = key.replace(/\//g, '_');
-                const docId = `${syncChannel.value}___${cleanKey}`;
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'nba_grades', docId);
-                await deleteDoc(docRef);
-            } catch (e) {
-                console.error("Error deleting grade from cloud:", e);
-                saveGradesToLocal();
-            }
-        };
-
-        const confirmClearAllGrades = async () => {
-            showResetConfirmModal.value = false;
-            const keysToDelete = Object.keys(grades.value);
-            grades.value = {};
-
-            if (cloudSyncStatus.value === 'local' || !db || !auth?.currentUser) {
-                saveGradesToLocal();
-                statusType.value = 'success';
-                statusMessage.value = `Historical records on this device have been cleared.`;
-                return;
-            }
-
-            try {
-                for (const k of keysToDelete) {
-                    const cleanKey = k.replace(/\//g, '_');
-                    const docId = `${syncChannel.value}___${cleanKey}`;
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'nba_grades', docId);
-                    await deleteDoc(docRef);
-                }
-                statusType.value = 'success';
-                statusMessage.value = `Historical ledger for channel "${syncChannel.value}" cleared.`;
-            } catch (e) {
-                console.error("Error clearing grades:", e);
-            }
-        };
-
         const setupRealtimeSync = () => {
             if (cloudSyncStatus.value === 'local' || !db || !auth?.currentUser) {
                 loadGradesFromLocal();
@@ -2383,41 +2196,6 @@ createApp({
                 cloudSyncStatus.value = 'local';
                 loadGradesFromLocal();
             });
-        };
-
-        const applySyncChannel = () => {
-            const clean = tempSyncChannel.value.trim().toLowerCase() || 'main';
-            syncChannel.value = clean;
-            tempSyncChannel.value = clean;
-
-            if (cloudSyncStatus.value === 'local') {
-                loadGradesFromLocal();
-                showSyncModal.value = false;
-                statusType.value = 'info';
-                statusMessage.value = `Switched local storage profile to "${clean}".`;
-                return;
-            }
-
-            setupRealtimeSync();
-            showSyncModal.value = false;
-            statusType.value = 'info';
-            statusMessage.value = `Switched to sync channel: "${clean}". Real-time updates active.`;
-        };
-
-        const copySyncKey = () => {
-            const textToCopy = syncChannel.value;
-            const textArea = document.createElement('textarea');
-            textArea.value = textToCopy;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                copySyncKeyText.value = 'Copied! ✓';
-                setTimeout(() => { copySyncKeyText.value = 'Copy Sync Key'; }, 2000);
-            } catch (e) {
-                console.error('Copy failed', e);
-            }
-            document.body.removeChild(textArea);
         };
 
         const computeScoreGrade = (game, entry) => {
@@ -2602,10 +2380,6 @@ createApp({
             currentUserId,
             cloudSyncStatus,
             syncChannel,
-            tempSyncChannel,
-            showSyncModal,
-            showResetConfirmModal,
-            copySyncKeyText,
             games,
             loading,
             isPullingScores,
@@ -2664,10 +2438,6 @@ createApp({
             getGameKey,
             getGameGrade,
             getDisplayScore,
-            clearSingleGradeKey,
-            confirmClearAllGrades,
-            applySyncChannel,
-            copySyncKey,
             getResultBoxClasses,
             getSummaryBadgeClasses,
             getTierBadgeClass,
