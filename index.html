@@ -123,7 +123,7 @@
                 <span class="truncate">RECORD</span>
                 <span class="px-1.5 py-0.2 text-[9px] sm:text-[10px] rounded-full font-mono-num shrink-0"
                       :class="activeTab === 'record' ? 'bg-orange-800/80 text-orange-100' : 'bg-slate-800 text-slate-400'">
-                    {{ strongRecord.w }}-{{ strongRecord.l }}-{{ strongRecord.p }}
+                    {{ allTimeStrongRecord.w }}-{{ allTimeStrongRecord.l }}-{{ allTimeStrongRecord.p }}
                 </span>
             </button>
         </div>
@@ -841,7 +841,7 @@ createApp({
         const activeTab = ref('matchups');
         const searchQuery = ref('');
         const quickFilter = ref('all');
-        const activeTimeframe = ref('today');
+        const activeTimeframe = ref('season');
         const recordSignalFilter = ref('all');
         const recordOutcomeFilter = ref('all');
         const statusMessage = ref('');
@@ -851,13 +851,14 @@ createApp({
 
         // Persistent shared grades
         const grades = ref({});
+        let isCloudLoaded = false;
 
         const timeframeOptions = [
+            { id: 'season', label: 'This Season' },
             { id: 'today', label: 'Today' },
             { id: 'yesterday', label: 'Yesterday' },
             { id: 'week', label: 'This Week' },
-            { id: 'month', label: 'This Month' },
-            { id: 'season', label: 'This Season' }
+            { id: 'month', label: 'This Month' }
         ];
 
         const recordFilterOptions = [
@@ -918,6 +919,27 @@ createApp({
             measurementId: "G-E9V6C7D85P"
         };
 
+        // Normalizer to guarantee backward compatibility with legacy grades
+        const normalizeGradeItem = (item, key) => {
+            if (!item) return item;
+            const parts = key ? key.split('__') : [];
+            const roadTeam = item.road || (parts.length >= 1 ? parts[0] : 'Away');
+            const homeTeam = item.home || (parts.length >= 2 ? parts[1] : 'Home');
+            return {
+                grade: item.grade || null,
+                awayScore: item.awayScore !== undefined ? item.awayScore : null,
+                homeScore: item.homeScore !== undefined ? item.homeScore : null,
+                // Legacy records without a signal were all Strong Bets
+                signal: item.signal || 'STRONG BET',
+                delta: item.delta !== undefined ? item.delta : (item.signal === 'LEAN' ? 2.5 : 4.5),
+                pick: item.pick || `${homeTeam} Spread`,
+                home: homeTeam,
+                road: roadTeam,
+                date: item.date || null,
+                auto: item.auto !== undefined ? item.auto : true
+            };
+        };
+
         const initFirebase = () => {
             if (typeof firebase !== 'undefined' && customFirebaseConfig && customFirebaseConfig.apiKey) {
                 try {
@@ -928,27 +950,74 @@ createApp({
                     const auth = firebase.auth();
                     auth.signInAnonymously().catch(e => console.warn('Firebase anon auth notice:', e));
 
-                    // Listen to shared consensus document 'main'
+                    const mergeIncomingGrades = (incoming) => {
+                        if (!incoming || typeof incoming !== 'object') return;
+                        let changed = false;
+                        const merged = { ...grades.value };
+                        Object.entries(incoming).forEach(([k, raw]) => {
+                            if (raw && raw.grade) {
+                                merged[k] = normalizeGradeItem(raw, k);
+                                changed = true;
+                            }
+                        });
+                        if (changed) {
+                            grades.value = merged;
+                            try {
+                                localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
+                            } catch (e) {}
+                        }
+                    };
+
+                    // 1. Primary listener on 'nba_tracker_shared/main'
                     db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
+                        isCloudLoaded = true;
                         if (doc.exists) {
                             const data = doc.data();
-                            if (data && data.grades) {
-                                grades.value = { ...data.grades };
-                                try {
-                                    localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
-                                } catch (e) {}
+                            if (data && data.grades && Object.keys(data.grades).length > 0) {
+                                mergeIncomingGrades(data.grades);
+                            } else {
+                                // If primary is empty, recover from legacy 'nba_grades/main'
+                                db.collection('nba_grades').doc('main').get().then(legDoc => {
+                                    if (legDoc.exists && legDoc.data()?.grades) {
+                                        mergeIncomingGrades(legDoc.data().grades);
+                                        saveGradesToStorage();
+                                    }
+                                }).catch(() => {});
                             }
+                        } else {
+                            // Document does not exist; pull legacy collection
+                            db.collection('nba_grades').doc('main').get().then(legDoc => {
+                                if (legDoc.exists && legDoc.data()?.grades) {
+                                    mergeIncomingGrades(legDoc.data().grades);
+                                    saveGradesToStorage();
+                                }
+                            }).catch(() => {});
                         }
                     }, err => {
                         console.warn('Firestore snapshot error:', err);
+                        isCloudLoaded = true;
                     });
+
+                    // 2. Direct one-time check on legacy 'nba_grades/main' for instant recovery
+                    db.collection('nba_grades').doc('main').get().then(legDoc => {
+                        if (legDoc.exists && legDoc.data()?.grades) {
+                            mergeIncomingGrades(legDoc.data().grades);
+                        }
+                    }).catch(() => {});
+
                 } catch (e) {
                     console.warn('Firebase init exception:', e);
+                    isCloudLoaded = true;
                 }
             }
         };
 
         const saveGradesToStorage = async () => {
+            // Guard against wiping cloud data on an uninitialized local session
+            if (!isCloudLoaded && Object.keys(grades.value).length === 0) {
+                return;
+            }
+
             try {
                 localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
             } catch (e) {}
@@ -1707,7 +1776,10 @@ createApp({
                 }
             });
 
-            saveGradesToStorage();
+            // Only persist to cloud if actual game status changes occurred
+            if (autoGradedCount > 0) {
+                saveGradesToStorage();
+            }
             isPullingScores.value = false;
             lastScoreSyncTime.value = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         };
@@ -1799,7 +1871,10 @@ createApp({
 
         // Timeframe Historical Records Computation
         const isDateInTimeframe = (dateStr, tf) => {
-            if (!dateStr) return tf === 'today' || tf === 'season';
+            // "This Season" always includes every historical and legacy play
+            if (tf === 'season') return true;
+            if (!dateStr) return tf === 'today';
+
             const todayIso = getTodayIso();
             const yestIso = getYesterdayIso();
 
@@ -1807,7 +1882,9 @@ createApp({
             if (tf === 'yesterday') return dateStr === yestIso;
 
             const now = new Date();
-            const [y, m, d] = dateStr.split('-').map(Number);
+            const parts = String(dateStr).split('-');
+            if (parts.length < 3) return tf === 'season';
+            const [y, m, d] = parts.map(Number);
             const itemDate = new Date(y, m - 1, d);
 
             if (tf === 'week') {
@@ -1825,7 +1902,8 @@ createApp({
 
         const calcRecord = (filterFn) => {
             let w = 0, l = 0, p = 0;
-            Object.values(grades.value).forEach(item => {
+            Object.entries(grades.value).forEach(([k, rawItem]) => {
+                const item = normalizeGradeItem(rawItem, k);
                 if (!item || !item.grade) return;
                 if (!isDateInTimeframe(item.date, activeTimeframe.value)) return;
                 if (filterFn && !filterFn(item)) return;
@@ -1844,11 +1922,29 @@ createApp({
         const leanRecord = computed(() => calcRecord(item => item.signal === 'LEAN'));
         const overallRecord = computed(() => calcRecord(() => true));
 
+        // Unfiltered all-time Strong Bets record for the top navigation badge
+        const allTimeStrongRecord = computed(() => {
+            let w = 0, l = 0, p = 0;
+            Object.entries(grades.value).forEach(([k, rawItem]) => {
+                const item = normalizeGradeItem(rawItem, k);
+                if (!item || !item.grade) return;
+                if (item.signal !== 'STRONG BET') return;
+                if (item.grade === 'W') w++;
+                else if (item.grade === 'L') l++;
+                else if (item.grade === 'P') p++;
+            });
+            const decided = w + l;
+            const winPct = decided > 0 ? ((w / decided) * 100).toFixed(1) : '0.0';
+            return { w, l, p, total: w + l + p, winPct };
+        });
+
         // Historical Ledger Table List
         const filteredGradedGames = computed(() => {
             const list = [];
-            Object.entries(grades.value).forEach(([k, item]) => {
-                if (!item) return;
+            Object.entries(grades.value).forEach(([k, rawItem]) => {
+                if (!rawItem) return;
+                const item = normalizeGradeItem(rawItem, k);
+                if (!item.grade) return;
                 if (!isDateInTimeframe(item.date, activeTimeframe.value)) return;
                 if (recordSignalFilter.value === 'strong' && item.signal !== 'STRONG BET') return;
                 if (recordSignalFilter.value === 'lean' && item.signal !== 'LEAN') return;
@@ -1856,12 +1952,12 @@ createApp({
 
                 list.push({
                     key: k,
-                    date: item.date || 'Today',
-                    road: item.road || k.split('__')[0],
-                    home: item.home || k.split('__')[1],
-                    signal: item.signal || 'LEAN',
-                    delta: item.delta !== undefined ? item.delta : 2.5,
-                    pick: item.pick || 'Target',
+                    date: item.date || 'Past Game',
+                    road: item.road,
+                    home: item.home,
+                    signal: item.signal,
+                    delta: item.delta !== undefined ? item.delta : 4.0,
+                    pick: item.pick,
                     awayScore: item.awayScore,
                     homeScore: item.homeScore,
                     grade: item.grade,
@@ -1926,10 +2022,23 @@ createApp({
         };
 
         onMounted(() => {
-            try {
-                const saved = localStorage.getItem('nba_quant_grades');
-                if (saved) grades.value = JSON.parse(saved);
-            } catch (e) {}
+            // Multi-key local storage recovery: pull from current and prior keys
+            const localKeys = ['nba_quant_grades', 'nba_grades', 'cbb_quant_grades'];
+            const mergedLocal = {};
+            localKeys.forEach(k => {
+                try {
+                    const saved = localStorage.getItem(k);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && typeof parsed === 'object') {
+                            Object.assign(mergedLocal, parsed);
+                        }
+                    }
+                } catch (e) {}
+            });
+            if (Object.keys(mergedLocal).length > 0) {
+                grades.value = mergedLocal;
+            }
 
             initFirebase();
             fetchSheetData();
@@ -1970,6 +2079,7 @@ createApp({
             strongRecord,
             leanRecord,
             overallRecord,
+            allTimeStrongRecord,
             filteredGradedGames,
             deleteGrade,
             getModelVal,
