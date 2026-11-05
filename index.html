@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NBA Quant Analyzer</title>
+    <title>NBA Analyzer</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
@@ -63,7 +63,7 @@
                 </div>
                 <div>
                     <div class="flex items-center gap-1.5">
-                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">QuantEdge NBA</h1>
+                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">NBA Analyzer</h1>
                         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
                             NBA
                         </span>
@@ -233,7 +233,7 @@
                 <div class="text-3xl">🔍</div>
                 <div class="text-sm font-semibold text-slate-300">No NBA matchups match your filter.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Try switching filters or clearing your search query. Games with Delta &le; 1.5 pts are filtered to the Noise Zone.
+                    Try switching filters or clearing your search query.
                 </p>
                 <div class="flex justify-center gap-2 pt-2">
                     <button @click="searchQuery = ''; quickFilter = 'all'" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200">
@@ -450,7 +450,7 @@
                                             Final (Grading...)
                                         </div>
                                         <div v-else class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                            Final ({{ game.result?.finalAction?.includes('LEAN') ? 'Lean / Graded' : 'Pass / Noise' }})
+                                            Final ({{ game.result?.finalAction?.includes('LEAN') ? 'Lean / Graded' : 'Pass' }})
                                         </div>
                                     </div>
 
@@ -491,7 +491,7 @@
                             <!-- Tier 1 Models -->
                             <div>
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">
-                                    Tier 1 Core Models (Delta &ge; 4.0 = Strong Bet | 2.0-3.5 = Lean)
+                                    Tier 1 Core Models (Delta &ge; 4.0 = Strong Bet | 0.0 - 3.5 = Lean)
                                 </div>
                                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 font-mono-num">
                                     <div v-for="mKey in modelTiers.t1" :key="mKey" 
@@ -506,7 +506,7 @@
                             <!-- Tier 2 Models -->
                             <div>
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1">
-                                    Tier 2 Secondary Models (Delta &ge; 2.0 = Lean Confirmation)
+                                    Tier 2 Secondary Models (Edge Confirmation)
                                 </div>
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono-num">
                                     <div v-for="mKey in modelTiers.t2" :key="mKey" 
@@ -552,12 +552,12 @@
                     <div class="text-xl font-extrabold text-emerald-300 font-mono-num mt-0.5">{{ strongBetsCount }}</div>
                 </div>
                 <div class="bg-sky-950/40 border border-sky-800/60 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Leans (2.0 - 3.5)</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Leans (0.0 - 3.5)</span>
                     <div class="text-xl font-extrabold text-sky-300 font-mono-num mt-0.5">{{ leansCount }}</div>
                 </div>
-                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Noise Pass (&le;1.5)</span>
-                    <div class="text-xl font-extrabold text-slate-400 font-mono-num mt-0.5">{{ noiseCount }}</div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Live In-Progress</span>
+                    <div class="text-xl font-extrabold text-rose-300 font-mono-num mt-0.5">{{ liveGamesCount }}</div>
                 </div>
             </div>
 
@@ -566,7 +566,7 @@
                 <div class="flex items-center gap-2">
                     <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
                         <input type="checkbox" v-model="showOnlyActionable" class="rounded bg-slate-950 border-slate-700 text-orange-500 focus:ring-0">
-                        <span>Show Actionable Signals Only (Delta &ge; 2.0 pts) ({{ actionableGames.length }})</span>
+                        <span>Show Actionable Plays Only ({{ actionableGames.length }})</span>
                     </label>
                 </div>
 
@@ -585,7 +585,7 @@
                 <div class="text-3xl">📊</div>
                 <div class="text-sm font-semibold text-slate-300">No matching plays to display.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Uncheck "Show Actionable Signals Only" to view all matchups, including those in the Noise Zone (&le;1.5 pts).
+                    Try switching filters or syncing the latest sheet.
                 </p>
             </div>
 
@@ -726,73 +726,56 @@
                 </div>
             </div>
 
-            <!-- Record Hero Cards Grid: Delta Tier Breakdown -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <!-- Record Hero Cards Grid: Strong Bets, Leans, and Overall Record -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <!-- 1. Strong Bets Card (>= 4.0 pts) -->
-                <div class="bg-emerald-950/20 border border-emerald-800/50 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+                <div class="bg-emerald-950/20 border border-emerald-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                             <span>Strong Bets</span>
                             <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-mono-num">&ge; 4.0 pts</span>
                         </div>
-                        <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        <div class="text-3xl font-black text-white font-mono-num mt-1">
                             {{ strongRecord.w }}-{{ strongRecord.l }}-{{ strongRecord.p }}
                         </div>
                     </div>
-                    <div class="pt-2 border-t border-emerald-900/40 mt-2 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-emerald-300 font-extrabold text-sm">{{ strongRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[10px]">{{ strongRecord.w }}/{{ strongRecord.decided }} Wins</span>
+                    <div class="pt-2 border-t border-emerald-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
+                        <span class="text-emerald-300 font-extrabold text-base">{{ strongRecord.winPct }}%</span>
+                        <span class="text-slate-400 text-[11px]">{{ strongRecord.w }}/{{ strongRecord.decided }} Won</span>
                     </div>
                 </div>
 
-                <!-- 2. Tier 2 Leans Card (2.0 - 3.5 pts) -->
-                <div class="bg-sky-950/20 border border-sky-800/50 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+                <!-- 2. Leans Card (0.0 - 3.5 pts) -->
+                <div class="bg-sky-950/20 border border-sky-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                            <span>Tier 2 Leans</span>
-                            <span class="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-mono-num">2.0 - 3.5 pts</span>
+                            <span>Leans</span>
+                            <span class="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-mono-num">0.0 - 3.5 pts</span>
                         </div>
-                        <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        <div class="text-3xl font-black text-white font-mono-num mt-1">
                             {{ leansRecord.w }}-{{ leansRecord.l }}-{{ leansRecord.p }}
                         </div>
                     </div>
-                    <div class="pt-2 border-t border-sky-900/40 mt-2 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-sky-300 font-extrabold text-sm">{{ leansRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[10px]">{{ leansRecord.w }}/{{ leansRecord.decided }} Wins</span>
+                    <div class="pt-2 border-t border-sky-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
+                        <span class="text-sky-300 font-extrabold text-base">{{ leansRecord.winPct }}%</span>
+                        <span class="text-slate-400 text-[11px]">{{ leansRecord.w }}/{{ leansRecord.decided }} Won</span>
                     </div>
                 </div>
 
-                <!-- 3. All Actionable Plays (>= 2.0 pts) -->
-                <div class="bg-purple-950/20 border border-purple-800/50 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
+                <!-- 3. Overall Record Card (All Actionable) -->
+                <div class="bg-purple-950/20 border border-purple-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-400">
-                            <span>All Actionable</span>
-                            <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-mono-num">&ge; 2.0 pts</span>
+                            <span>Overall Record</span>
+                            <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-mono-num">All Plays</span>
                         </div>
-                        <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        <div class="text-3xl font-black text-white font-mono-num mt-1">
                             {{ overallRecord.w }}-{{ overallRecord.l }}-{{ overallRecord.p }}
                         </div>
                     </div>
-                    <div class="pt-2 border-t border-purple-900/40 mt-2 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-purple-300 font-extrabold text-sm">{{ overallRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[10px]">{{ overallRecord.w }}/{{ overallRecord.decided }} Wins</span>
-                    </div>
-                </div>
-
-                <!-- 4. Noise Suppressed Count Card (0.0 - 1.5 pts) -->
-                <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            <span>Noise Suppressed</span>
-                            <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 text-[9px] font-mono-num">&le; 1.5 pts</span>
-                        </div>
-                        <div class="text-2xl font-black text-slate-300 font-mono-num mt-1">
-                            {{ noiseSuppressedGradedCount }}
-                        </div>
-                    </div>
-                    <div class="pt-2 border-t border-slate-800 mt-2 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-slate-400 font-semibold text-xs">Do Not Bet</span>
-                        <span class="text-slate-500 text-[10px]">Vig Avoided</span>
+                    <div class="pt-2 border-t border-purple-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
+                        <span class="text-purple-300 font-extrabold text-base">{{ overallRecord.winPct }}%</span>
+                        <span class="text-slate-400 text-[11px]">{{ overallRecord.w }}/{{ overallRecord.decided }} Won</span>
                     </div>
                 </div>
             </div>
@@ -859,9 +842,9 @@
             <!-- Graded Games Table -->
             <div v-if="filteredGradedGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🏀</div>
-                <div class="text-sm font-semibold text-slate-300">No completed graded plays for this period.</div>
+                <div class="text-sm font-semibold text-slate-300">No plays found for this period.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Matches with Delta &ge; 2.0 pts (Strong Bets and Leans) are automatically graded and cataloged here as games conclude.
+                    Plays will appear here as they tip off and conclude.
                 </p>
             </div>
 
@@ -875,7 +858,7 @@
                                 <th class="py-3 px-3">Signal</th>
                                 <th class="py-3 px-3 text-center">Delta</th>
                                 <th class="py-3 px-3">Target Pick</th>
-                                <th class="py-3 px-3 text-center">Final Score</th>
+                                <th class="py-3 px-3 text-center">Score</th>
                                 <th class="py-3 px-3 text-center">Outcome</th>
                             </tr>
                         </thead>
@@ -901,7 +884,7 @@
                                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border"
                                           :class="{
                                               'bg-emerald-500/20 text-emerald-300 border-emerald-500/40': item.signal === 'STRONG BET',
-                                              'bg-sky-500/20 text-sky-300 border-sky-500/40': item.signal === 'TIER 2 LEAN' || item.signal.includes('LEAN'),
+                                              'bg-sky-500/20 text-sky-300 border-sky-500/40': item.signal === 'LEAN' || item.signal.includes('LEAN'),
                                               'bg-slate-800 text-slate-300 border-slate-700': item.signal.includes('PASS')
                                           }">
                                         {{ item.signal || 'STRONG BET' }}
@@ -920,17 +903,22 @@
                                     </span>
                                 </td>
 
-                                <td class="py-3 px-3 text-center font-mono-num font-bold text-slate-200">
+                                <td class="py-3 px-3 text-center font-mono-num font-bold" :class="item.isLive ? 'text-emerald-400' : 'text-slate-200'">
                                     {{ item.awayScore }} - {{ item.homeScore }}
+                                    <span v-if="item.isLive" class="block text-[9px] text-slate-400 font-normal">In Progress</span>
                                 </td>
 
                                 <td class="py-3 px-3 text-center font-mono-num">
-                                    <span 
+                                    <span v-if="item.grade === 'LIVE'"
+                                          class="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                                        LIVE
+                                    </span>
+                                    <span v-else 
                                         class="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase"
                                         :class="{
-                                            'bg-emerald-500/20 text-emerald-300 border-emerald-500/40': item.grade === 'W',
-                                            'bg-rose-500/20 text-rose-300 border-rose-500/40': item.grade === 'L',
-                                            'bg-amber-500/20 text-amber-300 border-amber-500/40': item.grade === 'P'
+                                            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': item.grade === 'W',
+                                            'bg-rose-500/20 text-rose-300 border border-rose-500/40': item.grade === 'L',
+                                            'bg-amber-500/20 text-amber-300 border border-amber-500/40': item.grade === 'P'
                                         }"
                                     >
                                         {{ item.grade === 'W' ? 'WIN' : (item.grade === 'L' ? 'LOSS' : 'PUSH') }}
@@ -945,24 +933,20 @@
 
     </main>
 
-    <!-- Footer with Delta Gatekeeper & Model Tier Architecture -->
+    <!-- Footer with Delta Threshold & Model Tier Architecture -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="font-bold text-slate-300">Delta Threshold Gatekeeper Structure:</span>
+            <span class="font-bold text-slate-300">Delta Threshold Classification Structure:</span>
             <span class="text-slate-400 font-mono-num">&Delta; = |Model Spread - Market Line|</span>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] font-mono-num">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono-num">
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-slate-400 block mb-0.5">0.0 to 1.5 pts &mdash; PASS / NO PLAY:</strong>
-                Noise zone. Line is efficient; sportsbook juice will erode capital.
+                <strong class="text-sky-400 block mb-0.5">0.0 to 3.5 pts &mdash; LEANS:</strong>
+                Solid analytical model lean detecting edge and pricing discrepancy against the line.
             </div>
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-sky-400 block mb-0.5">2.0 to 3.5 pts &mdash; TIER 2 / LEAN:</strong>
-                Solid analytical edge where the model detects pricing friction.
-            </div>
-            <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-emerald-400 block mb-0.5">&ge; 4.0 pts &mdash; TIER 1 / STRONG BET:</strong>
-                Premium edge where market pricing significantly deviates from ratings.
+                <strong class="text-emerald-400 block mb-0.5">&ge; 4.0 pts &mdash; STRONG BETS:</strong>
+                High-confidence premium edge where model consensus significantly deviates from market pricing.
             </div>
         </div>
     </footer>
@@ -1033,12 +1017,11 @@ createApp({
         const signalFilterOptions = [
             { id: 'all', label: 'All Signals' },
             { id: 'STRONG BET', label: 'Strong Bets (≥4.0)' },
-            { id: 'TIER 2 LEAN', label: 'Leans (2.0-3.5)' },
-            { id: 'PASS', label: 'Noise Pass (≤1.5)' }
+            { id: 'LEAN', label: 'Leans (0.0-3.5)' }
         ];
 
         const recordFilterOptions = [
-            { id: 'all', label: 'All (W/L/P)' },
+            { id: 'all', label: 'All Plays' },
             { id: 'W', label: 'Wins' },
             { id: 'L', label: 'Losses' },
             { id: 'P', label: 'Pushes' }
@@ -1082,15 +1065,20 @@ createApp({
         const filterOptions = computed(() => [
             { id: 'all', label: 'All Matchups', badge: games.value.length },
             { id: 'live', label: '🔴 Live Now', badge: liveGamesCount.value },
-            { id: 'actionable', label: 'Actionable (≥2.0)', badge: actionableGames.value.length },
             { id: 'strong', label: 'Strong Bets (≥4.0)', badge: strongBetsCount.value },
-            { id: 'lean', label: 'Leans (2.0-3.5)', badge: leansCount.value },
-            { id: 'noise', label: 'Noise Zone (≤1.5)', badge: noiseCount.value }
+            { id: 'lean', label: 'Leans (0.0-3.5)', badge: leansCount.value }
         ]);
 
-        const getIsoDateStr = (d) => {
-            if (!d) return '';
-            const dt = new Date(d);
+        // Timezone-safe string-based ISO date extraction
+        const getLocalIsoDate = (input) => {
+            if (!input) return '';
+            if (typeof input === 'string') {
+                const trimmed = input.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                    return trimmed;
+                }
+            }
+            const dt = new Date(input);
             if (isNaN(dt.getTime())) return '';
             const year = dt.getFullYear();
             const month = String(dt.getMonth() + 1).padStart(2, '0');
@@ -1098,25 +1086,29 @@ createApp({
             return `${year}-${month}-${day}`;
         };
 
+        const getTodayIso = () => getLocalIsoDate(new Date());
+
+        const getYesterdayIso = () => {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            return getLocalIsoDate(d);
+        };
+
         const isDateInTimeframe = (dateVal, timeframe) => {
             if (timeframe === 'season') return true;
-            if (!dateVal) return true;
+            if (!dateVal) return false;
 
-            const d = new Date(dateVal);
-            if (isNaN(d.getTime())) return true;
+            const itemIso = getLocalIsoDate(dateVal);
+            if (!itemIso) return false;
 
-            const now = new Date();
-            const todayIso = getIsoDateStr(now);
-
-            const yest = new Date();
-            yest.setDate(now.getDate() - 1);
-            const yestIso = getIsoDateStr(yest);
-
-            const itemIso = getIsoDateStr(d);
+            const todayIso = getTodayIso();
+            const yestIso = getYesterdayIso();
 
             if (timeframe === 'today') return itemIso === todayIso;
             if (timeframe === 'yesterday') return itemIso === yestIso;
+
             if (timeframe === 'week') {
+                const now = new Date();
                 const startOfWeek = new Date(now);
                 const dayOfWeek = now.getDay();
                 const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
@@ -1127,11 +1119,16 @@ createApp({
                 endOfWeek.setDate(startOfWeek.getDate() + 6);
                 endOfWeek.setHours(23, 59, 59, 999);
 
-                return d >= startOfWeek && d <= endOfWeek;
+                const startIso = getLocalIsoDate(startOfWeek);
+                const endIso = getLocalIsoDate(endOfWeek);
+                return itemIso >= startIso && itemIso <= endIso;
             }
+
             if (timeframe === 'month') {
-                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                const currentYearMonth = todayIso.slice(0, 7);
+                return itemIso.startsWith(currentYearMonth);
             }
+
             return true;
         };
 
@@ -1169,7 +1166,7 @@ createApp({
                 return null;
             }
 
-            if (grade && grade.grade) {
+            if (grade && grade.grade && grade.grade !== 'LIVE') {
                 if (grade.grade === 'W') return { pct: 100, label: '100%', status: 'FINAL_WIN', coverDiff: 0 };
                 if (grade.grade === 'L') return { pct: 0, label: '0%', status: 'FINAL_LOSS', coverDiff: 0 };
                 if (grade.grade === 'P') return { pct: 50, label: 'Push', status: 'FINAL_PUSH', coverDiff: 0 };
@@ -1371,19 +1368,17 @@ createApp({
                 return 'Opposite unanimity from Tier 3 models triggered downgrade.';
             }
             if (delta === null || delta === undefined) return 'No delta projection available.';
-            if (delta >= 4.0) return 'Premium edge: market pricing significantly deviates from ratings.';
-            if (delta >= 2.0) return 'Solid analytical edge: model detects pricing friction.';
-            return 'Noise zone: line is efficient; sportsbook juice will erode capital.';
+            if (delta >= 4.0) return 'Strong Bet (≥4.0 pts): Premium edge where market pricing significantly deviates from ratings.';
+            return 'Lean (0.0 - 3.5 pts): Actionable model lean detecting pricing edge.';
         };
 
         const getDeltaBadgeClass = (delta) => {
             if (delta === null || delta === undefined) return 'bg-slate-950 text-slate-500 border-slate-800';
             if (delta >= 4.0) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-black';
-            if (delta >= 2.0) return 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-bold';
-            return 'bg-slate-900 text-slate-400 border-slate-800 font-semibold';
+            return 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-bold';
         };
 
-        // --- Analytical Delta Threshold Gatekeeper Engine ---
+        // --- Analytical Delta Threshold Classification Engine (Strong Bet >= 4.0 | Lean 0.0 - 3.5 pts) ---
         const analyzeGame = (game) => {
             const liveLine = parseNum(game.raw.line);
             game.liveLine = liveLine;
@@ -1428,17 +1423,11 @@ createApp({
 
                 if (homePct >= requiredAgreePct && homeCount > 0) {
                     const avgEdge = homeEdges.reduce((a, b) => a + b, 0) / homeEdges.length;
-                    let status = 'PASS';
-                    if (avgEdge >= 4.0) status = 'BET';
-                    else if (avgEdge >= 2.0) status = 'LEAN';
-                    else status = 'PASS';
+                    const status = avgEdge >= 4.0 ? 'BET' : 'LEAN';
                     return { total, agreeCount: homeCount, edge: avgEdge, dir: 'Home', status };
                 } else if (awayPct >= requiredAgreePct && awayCount > 0) {
                     const avgEdge = awayEdges.reduce((a, b) => a + b, 0) / awayEdges.length;
-                    let status = 'PASS';
-                    if (avgEdge >= 4.0) status = 'BET';
-                    else if (avgEdge >= 2.0) status = 'LEAN';
-                    else status = 'PASS';
+                    const status = avgEdge >= 4.0 ? 'BET' : 'LEAN';
                     return { total, agreeCount: awayCount, edge: avgEdge, dir: 'Away', status };
                 }
 
@@ -1449,7 +1438,7 @@ createApp({
             const t2 = evaluateTier(modelTiers.t2, 1.0);
             const t3 = evaluateTier(modelTiers.t3, 1.0);
 
-            let finalAction = 'PASS';
+            let finalAction = 'LEAN';
             let finalDir = 'None';
             let t3Downgrade = false;
             let primaryDelta = 0;
@@ -1465,22 +1454,13 @@ createApp({
             }
 
             if (t1.dir !== 'None' && t1.dir !== 'Split' && t2.dir !== 'None' && t2.dir !== 'Split' && t1.dir !== t2.dir) {
-                finalAction = 'PASS (Conflicting Tiers)';
+                finalAction = 'PASS (Split Tiers)';
                 finalDir = 'None';
             } else {
                 if (primaryDelta >= 4.0) {
-                    if (t1.status === 'BET' || (t1.dir === finalDir && t1.edge >= 4.0)) {
-                        finalAction = 'STRONG BET';
-                    } else if (t2.status === 'BET') {
-                        finalAction = 'STRONG BET';
-                    } else {
-                        finalAction = 'TIER 2 LEAN';
-                    }
-                } else if (primaryDelta >= 2.0) {
-                    finalAction = 'TIER 2 LEAN';
+                    finalAction = 'STRONG BET';
                 } else {
-                    finalAction = 'PASS (Noise Zone)';
-                    finalDir = 'None';
+                    finalAction = 'LEAN';
                 }
             }
 
@@ -1748,10 +1728,6 @@ createApp({
             tomorrow.setDate(tomorrow.getDate() + 1);
             datesToQuery.add(formatYMD(tomorrow));
 
-            if (sheetDetectedDate.value) {
-                datesToQuery.add(sheetDetectedDate.value);
-            }
-
             let requestUrls = [];
             datesToQuery.forEach(dStr => {
                 if (dStr === 'live_now') {
@@ -1852,7 +1828,7 @@ createApp({
 
                         const dateA = a.ev.date ? formatYMD(new Date(a.ev.date)) : '';
                         const dateB = b.ev.date ? formatYMD(new Date(b.ev.date)) : '';
-                        const targetDate = sheetDetectedDate.value || todayStr;
+                        const targetDate = todayStr;
 
                         if (dateA === targetDate && dateB !== targetDate) return -1;
                         if (dateB === targetDate && dateA !== targetDate) return 1;
@@ -1960,7 +1936,7 @@ createApp({
                 // Auto-grade completed final games
                 if (isCompleted && awayScore !== null && homeScore !== null && g.result) {
                     const action = g.result.finalAction;
-                    const isActionable = action === 'STRONG BET' || action === 'TIER 2 LEAN' || action.includes('LEAN');
+                    const isActionable = action === 'STRONG BET' || action === 'LEAN' || action.includes('LEAN');
 
                     if (isActionable && g.result.finalDir !== 'None') {
                         const current = grades.value[key] || { grade: null, awayScore: null, homeScore: null };
@@ -1977,8 +1953,8 @@ createApp({
                         current.home = g.home;
                         current.neutral = g.neutral;
 
-                        const dateSource = eventDateObj || (sheetDetectedDate.value ? new Date(sheetDetectedDate.value.slice(0,4) + '-' + sheetDetectedDate.value.slice(4,6) + '-' + sheetDetectedDate.value.slice(6,8)) : new Date());
-                        current.date = getIsoDateStr(dateSource);
+                        const dateSource = eventDateObj || new Date();
+                        current.date = getLocalIsoDate(dateSource);
                         current.dateFormatted = dateSource.toLocaleDateString([], { month: 'short', day: 'numeric' });
                         current.timestamp = dateSource.getTime();
 
@@ -2028,14 +2004,10 @@ createApp({
 
             if (quickFilter.value === 'live') {
                 list = list.filter(g => isGameLive(g));
-            } else if (quickFilter.value === 'actionable') {
-                list = list.filter(g => g.result && g.result.finalAction !== 'OFF' && !g.result.finalAction.includes('PASS'));
             } else if (quickFilter.value === 'strong') {
                 list = list.filter(g => g.result && g.result.finalAction === 'STRONG BET');
             } else if (quickFilter.value === 'lean') {
-                list = list.filter(g => g.result && (g.result.finalAction === 'TIER 2 LEAN' || g.result.finalAction.includes('LEAN')));
-            } else if (quickFilter.value === 'noise') {
-                list = list.filter(g => g.result && g.result.finalAction.includes('Noise Zone'));
+                list = list.filter(g => g.result && (g.result.finalAction === 'LEAN' || g.result.finalAction.includes('LEAN')));
             }
 
             return sortGamesByTime(list);
@@ -2058,12 +2030,7 @@ createApp({
 
         const leansCount = computed(() => {
             if (!analyzedGames.value) return 0;
-            return analyzedGames.value.filter(g => g.result.finalAction === 'TIER 2 LEAN' || g.result.finalAction.includes('LEAN')).length;
-        });
-
-        const noiseCount = computed(() => {
-            if (!analyzedGames.value) return 0;
-            return analyzedGames.value.filter(g => g.result.finalAction.includes('Noise Zone')).length;
+            return analyzedGames.value.filter(g => g.result.finalAction === 'LEAN' || g.result.finalAction.includes('LEAN')).length;
         });
 
         const summaryList = computed(() => {
@@ -2078,7 +2045,7 @@ createApp({
         const copySummaryToClipboard = () => {
             if (!summaryList.value || summaryList.value.length === 0) return;
             
-            let text = `🏀 QuantEdge NBA Analyzer - Summary Report\n`;
+            let text = `🏀 NBA Analyzer - Summary Report\n`;
             text = text + `========================================\n`;
             summaryList.value.forEach(g => {
                 const pickStr = g.result.finalDir !== 'None' ? `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})` : 'PASS';
@@ -2230,7 +2197,7 @@ createApp({
 
             let w = 0, l = 0, p = 0;
             allGradedList.forEach(item => {
-                if (!item || !item.grade) return;
+                if (!item || !item.grade || item.grade === 'LIVE') return;
 
                 const itemDate = item.date || item.timestamp;
                 if (!isDateInTimeframe(itemDate, timeframe)) return;
@@ -2239,7 +2206,7 @@ createApp({
                 if (targetSignal === 'STRONG BET') {
                     if (itemSignal !== 'STRONG BET') return;
                 } else if (targetSignal === 'LEAN') {
-                    if (itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN')) return;
+                    if (itemSignal !== 'LEAN' && itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN')) return;
                 } else if (targetSignal === 'ALL') {
                     if (itemSignal.includes('PASS')) return;
                 }
@@ -2266,18 +2233,89 @@ createApp({
         const leansRecord = computed(() => calcPerformance('LEAN', timeframeFilter.value));
         const overallRecord = computed(() => calcPerformance('ALL', timeframeFilter.value));
 
-        const noiseSuppressedGradedCount = computed(() => {
-            return Object.values(grades.value).filter(it => it && it.signal && it.signal.includes('PASS') && isDateInTimeframe(it.date || it.timestamp, timeframeFilter.value)).length;
-        });
-
         const getTimeframeGradedCount = (tf) => {
-            return Object.values(grades.value).filter(it => it && it.grade && isDateInTimeframe(it.date || it.timestamp, tf)).length;
+            let count = 0;
+            Object.values(grades.value).forEach(it => {
+                if (it && it.grade && it.grade !== 'LIVE' && isDateInTimeframe(it.date || it.timestamp, tf)) {
+                    count++;
+                }
+            });
+            return count;
         };
 
+        // Unified Ledger combining historical records with active live / same-day completed matchups
         const filteredGradedGames = computed(() => {
-            const list = Object.entries(grades.value)
-                .map(([k, v]) => ({ key: k, ...v }))
-                .filter(item => item && item.grade);
+            const recordsMap = new Map();
+
+            // 1. Add all stored historical grades
+            Object.entries(grades.value).forEach(([k, v]) => {
+                if (v && v.grade) {
+                    recordsMap.set(k, { key: k, ...v });
+                }
+            });
+
+            // 2. Incorporate current slate games (Live or Finished today)
+            if (games.value && Array.isArray(games.value)) {
+                games.value.forEach(g => {
+                    if (!g.result || g.result.finalAction === 'OFF' || g.result.finalDir === 'None') return;
+                    const key = getGameKey(g);
+                    const liveSt = getGameLiveStatus(g);
+
+                    const isLive = isGameLive(g);
+                    const isCompleted = !isGamePre(g) && (liveSt?.isCompleted || getGameGrade(g)?.grade);
+
+                    if (isLive || isCompleted) {
+                        const existing = recordsMap.get(key);
+                        const scoreInfo = getDisplayScore(g);
+                        const todayIso = getTodayIso();
+
+                        if (isLive) {
+                            recordsMap.set(key, {
+                                ...(existing || {}),
+                                key,
+                                road: g.road,
+                                home: g.home,
+                                neutral: g.neutral,
+                                signal: g.result.finalAction,
+                                delta: g.result.delta,
+                                targetTeam: g.result.targetTeam,
+                                finalDir: g.result.finalDir,
+                                liveLine: g.liveLine,
+                                awayScore: scoreInfo.away,
+                                homeScore: scoreInfo.home,
+                                isLive: true,
+                                grade: 'LIVE',
+                                date: todayIso,
+                                dateFormatted: 'Today',
+                                timestamp: Date.now()
+                            });
+                        } else if (isCompleted && (!existing || existing.grade === 'LIVE')) {
+                            const gradeVal = getGameGrade(g)?.grade || null;
+                            if (gradeVal && gradeVal !== 'LIVE') {
+                                recordsMap.set(key, {
+                                    key,
+                                    road: g.road,
+                                    home: g.home,
+                                    neutral: g.neutral,
+                                    signal: g.result.finalAction,
+                                    delta: g.result.delta,
+                                    targetTeam: g.result.targetTeam,
+                                    finalDir: g.result.finalDir,
+                                    liveLine: g.liveLine,
+                                    awayScore: scoreInfo.away,
+                                    homeScore: scoreInfo.home,
+                                    grade: gradeVal,
+                                    date: todayIso,
+                                    dateFormatted: 'Today',
+                                    timestamp: Date.now()
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+            const list = Array.from(recordsMap.values());
 
             return list.filter(item => {
                 const itemDate = item.date || item.timestamp;
@@ -2285,13 +2323,18 @@ createApp({
 
                 const itemSignal = item.signal || 'STRONG BET';
                 if (signalFilter.value === 'STRONG BET' && itemSignal !== 'STRONG BET') return false;
-                if (signalFilter.value === 'TIER 2 LEAN' && (itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN'))) return false;
-                if (signalFilter.value === 'PASS' && !itemSignal.includes('PASS')) return false;
+                if (signalFilter.value === 'LEAN' && itemSignal !== 'LEAN' && itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN')) return false;
 
-                if (recordFilter.value !== 'all' && item.grade !== recordFilter.value) return false;
+                if (recordFilter.value !== 'all') {
+                    if (item.grade !== recordFilter.value) return false;
+                }
 
                 return true;
-            }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            }).sort((a, b) => {
+                if (a.isLive && !b.isLive) return -1;
+                if (!a.isLive && b.isLive) return 1;
+                return (b.timestamp || 0) - (a.timestamp || 0);
+            });
         });
 
         const getResultBoxClasses = (res) => {
@@ -2408,12 +2451,10 @@ createApp({
             actionableGames,
             strongBetsCount,
             leansCount,
-            noiseCount,
             summaryList,
             strongRecord,
             leansRecord,
             overallRecord,
-            noiseSuppressedGradedCount,
             getTimeframeGradedCount,
             filteredGradedGames,
             getModelVal,
