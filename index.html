@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- Firebase Compat SDKs for Instant Standalone Real-Time Sync -->
+    <!-- Firebase Compat SDKs for Instant Standalone Real-Time Cloud Sync -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -69,7 +69,7 @@
                     <div class="flex items-center gap-1.5">
                         <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">NBA Analyzer</h1>
                         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                            NBA
+                            v1.1
                         </span>
                     </div>
                     <p class="text-[11px] text-slate-400 hidden sm:block">Multi-Tier Consensus &amp; Edge Engine (Pro Analytics)</p>
@@ -78,7 +78,6 @@
 
             <!-- Top Header Right Badges -->
             <div class="flex items-center gap-2">
-                <!-- Live Game Count Pill -->
                 <button 
                     v-if="liveGamesCount > 0"
                     @click="quickFilter = quickFilter === 'live' ? 'all' : 'live'"
@@ -625,20 +624,32 @@
         <!-- ==================== RECORD TAB ==================== -->
         <div v-if="activeTab === 'record'" class="space-y-4">
             
-            <!-- Timeframe Selector Pills -->
+            <!-- Performance Window Bar & Cloud Data Tools Trigger -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Performance Window:</span>
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <button 
-                        v-for="tf in timeframeOptions" 
-                        :key="tf.id"
-                        @click="activeTimeframe = tf.id"
-                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
-                        :class="activeTimeframe === tf.id ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
-                    >
-                        {{ tf.label }}
-                    </button>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Window:</span>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button 
+                            v-for="tf in timeframeOptions" 
+                            :key="tf.id"
+                            @click="activeTimeframe = tf.id"
+                            class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer"
+                            :class="activeTimeframe === tf.id ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
+                        >
+                            {{ tf.label }}
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Data & Cloud Diagnostics Tool Button -->
+                <button 
+                    @click="showDataModal = true"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                    title="Export, Import, or check Cloud Sync status"
+                >
+                    <span>☁️</span>
+                    <span>Cloud Sync ({{ totalHistoricalCount }})</span>
+                </button>
             </div>
 
             <!-- KPI Hero Cards -->
@@ -726,8 +737,16 @@
                 <div class="text-3xl">🏀</div>
                 <div class="text-sm font-semibold text-slate-300">No plays found for the selected performance window.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Plays are automatically graded upon game completion and synchronized across devices.
+                    Plays are automatically graded in the cloud upon game completion and synchronized across all devices in real time.
                 </p>
+                <div class="pt-2">
+                    <button 
+                        @click="showDataModal = true"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700"
+                    >
+                        Open Cloud Sync Diagnostic
+                    </button>
+                </div>
             </div>
 
             <div v-else class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
@@ -792,7 +811,7 @@
                                     <button 
                                         @click="deleteGrade(item.key)"
                                         class="text-xs text-slate-500 hover:text-rose-400 transition cursor-pointer px-1.5 py-0.5"
-                                        title="Delete single record"
+                                        title="Delete single record from cloud"
                                     >
                                         ✕
                                     </button>
@@ -805,6 +824,68 @@
         </div>
 
     </main>
+
+    <!-- Cloud Data Management & Diagnostic Modal -->
+    <div v-if="showDataModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">☁️</span>
+                    <h3 class="text-base font-bold text-white">Pure Cloud Sync (Firestore)</h3>
+                </div>
+                <button @click="showDataModal = false" class="text-slate-400 hover:text-white text-lg px-1">✕</button>
+            </div>
+
+            <!-- Cloud Status Badge -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-400">Firestore Cloud Status:</span>
+                    <span class="font-bold font-mono-num" :class="cloudStatusColor">{{ cloudStatusText }}</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                    <span>Active Graded Plays in Cloud:</span>
+                    <span class="text-white font-mono-num font-bold">{{ totalHistoricalCount }} plays</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-400">
+                    <span>Cloud Storage Channel:</span>
+                    <span class="text-orange-400 font-mono-num font-bold">nba_tracker_shared/main</span>
+                </div>
+            </div>
+
+            <!-- Export / Backup -->
+            <div class="space-y-1.5">
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Export Cloud Ledger</label>
+                <div class="flex gap-2">
+                    <button 
+                        @click="copyExportJson"
+                        class="w-full py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs transition"
+                    >
+                        {{ exportButtonText }}
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-500">Copies all current cloud-stored games to your clipboard as JSON.</p>
+            </div>
+
+            <!-- Import Direct to Cloud -->
+            <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Import Directly to Cloud</label>
+                <textarea 
+                    v-model="importJsonText"
+                    placeholder="Paste previously exported JSON or backup plays here to write directly to Firestore..."
+                    class="w-full h-24 p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono-num text-slate-200 placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                ></textarea>
+                <div class="flex justify-end gap-2">
+                    <button 
+                        @click="executeImport"
+                        class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+                    >
+                        Write Directly to Cloud
+                    </button>
+                </div>
+                <p v-if="importNotice" class="text-xs font-bold" :class="importNoticeColor">{{ importNotice }}</p>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
@@ -849,7 +930,16 @@ createApp({
         const copyButtonText = ref('Copy Summary');
         const sheetDetectedDate = ref(null);
 
-        // Persistent shared grades
+        // Modal & Diagnostics state
+        const showDataModal = ref(false);
+        const exportButtonText = ref('Copy Backup JSON to Clipboard');
+        const importJsonText = ref('');
+        const importNotice = ref('');
+        const importNoticeColor = ref('text-emerald-400');
+        const cloudStatusText = ref('Connecting to Cloud...');
+        const cloudStatusColor = ref('text-amber-400');
+
+        // PURE CLOUD STORAGE ONLY (No Local Storage)
         const grades = ref({});
         let isCloudLoaded = false;
 
@@ -908,7 +998,7 @@ createApp({
             { id: 'lean', label: 'Leans (0.0 - 3.5)' }
         ];
 
-        // Firebase Configuration
+        // Google Cloud Firestore Configuration
         const customFirebaseConfig = {
             apiKey: "AIzaSyDf60aDwwBvbz0ipNCF4lvfpmtw13kRzoY",
             authDomain: "nba-model-historical-tracker.firebaseapp.com",
@@ -919,7 +1009,6 @@ createApp({
             measurementId: "G-E9V6C7D85P"
         };
 
-        // Normalizer to guarantee backward compatibility with legacy grades
         const normalizeGradeItem = (item, key) => {
             if (!item) return item;
             const parts = key ? key.split('__') : [];
@@ -929,7 +1018,6 @@ createApp({
                 grade: item.grade || null,
                 awayScore: item.awayScore !== undefined ? item.awayScore : null,
                 homeScore: item.homeScore !== undefined ? item.homeScore : null,
-                // Legacy records without a signal were all Strong Bets
                 signal: item.signal || 'STRONG BET',
                 delta: item.delta !== undefined ? item.delta : (item.signal === 'LEAN' ? 2.5 : 4.5),
                 pick: item.pick || `${homeTeam} Spread`,
@@ -940,6 +1028,7 @@ createApp({
             };
         };
 
+        // Initialize Pure Cloud Firestore Synchronization
         const initFirebase = () => {
             if (typeof firebase !== 'undefined' && customFirebaseConfig && customFirebaseConfig.apiKey) {
                 try {
@@ -947,80 +1036,86 @@ createApp({
                         firebase.initializeApp(customFirebaseConfig);
                     }
                     const db = firebase.firestore();
-                    const auth = firebase.auth();
-                    auth.signInAnonymously().catch(e => console.warn('Firebase anon auth notice:', e));
 
-                    const mergeIncomingGrades = (incoming) => {
-                        if (!incoming || typeof incoming !== 'object') return;
-                        let changed = false;
-                        const merged = { ...grades.value };
-                        Object.entries(incoming).forEach(([k, raw]) => {
-                            if (raw && raw.grade) {
-                                merged[k] = normalizeGradeItem(raw, k);
-                                changed = true;
-                            }
-                        });
-                        if (changed) {
-                            grades.value = merged;
-                            try {
-                                localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
-                            } catch (e) {}
-                        }
-                    };
+                    try {
+                        firebase.auth().signInAnonymously().catch(() => {});
+                    } catch (e) {}
 
-                    // 1. Primary listener on 'nba_tracker_shared/main'
+                    // Pure Cloud Snapshot Listener
                     db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
                         isCloudLoaded = true;
+                        cloudStatusText.value = 'Cloud Connected (Real-Time)';
+                        cloudStatusColor.value = 'text-emerald-400';
                         if (doc.exists) {
                             const data = doc.data();
-                            if (data && data.grades && Object.keys(data.grades).length > 0) {
-                                mergeIncomingGrades(data.grades);
+                            if (data && data.grades && typeof data.grades === 'object') {
+                                const cleanGrades = {};
+                                Object.entries(data.grades).forEach(([k, raw]) => {
+                                    if (raw && raw.grade) {
+                                        cleanGrades[k] = normalizeGradeItem(raw, k);
+                                    }
+                                });
+                                grades.value = cleanGrades;
                             } else {
-                                // If primary is empty, recover from legacy 'nba_grades/main'
+                                // Fallback migration from legacy Firestore doc if needed
                                 db.collection('nba_grades').doc('main').get().then(legDoc => {
                                     if (legDoc.exists && legDoc.data()?.grades) {
-                                        mergeIncomingGrades(legDoc.data().grades);
-                                        saveGradesToStorage();
+                                        const cleanGrades = {};
+                                        Object.entries(legDoc.data().grades).forEach(([k, raw]) => {
+                                            if (raw && raw.grade) {
+                                                cleanGrades[k] = normalizeGradeItem(raw, k);
+                                            }
+                                        });
+                                        grades.value = cleanGrades;
+                                        saveGradesToCloud();
                                     }
                                 }).catch(() => {});
                             }
                         } else {
-                            // Document does not exist; pull legacy collection
                             db.collection('nba_grades').doc('main').get().then(legDoc => {
                                 if (legDoc.exists && legDoc.data()?.grades) {
-                                    mergeIncomingGrades(legDoc.data().grades);
-                                    saveGradesToStorage();
+                                    const cleanGrades = {};
+                                    Object.entries(legDoc.data().grades).forEach(([k, raw]) => {
+                                        if (raw && raw.grade) {
+                                            cleanGrades[k] = normalizeGradeItem(raw, k);
+                                        }
+                                    });
+                                    grades.value = cleanGrades;
+                                    saveGradesToCloud();
                                 }
                             }).catch(() => {});
                         }
                     }, err => {
-                        console.warn('Firestore snapshot error:', err);
+                        console.warn('Firestore Cloud Listener Notice:', err);
                         isCloudLoaded = true;
-                    });
-
-                    // 2. Direct one-time check on legacy 'nba_grades/main' for instant recovery
-                    db.collection('nba_grades').doc('main').get().then(legDoc => {
-                        if (legDoc.exists && legDoc.data()?.grades) {
-                            mergeIncomingGrades(legDoc.data().grades);
+                        if (String(err).includes('permission-denied')) {
+                            cloudStatusText.value = 'Permission Denied (Publish Firestore Rules)';
+                            cloudStatusColor.value = 'text-rose-400';
+                        } else {
+                            cloudStatusText.value = 'Cloud Network Disconnected';
+                            cloudStatusColor.value = 'text-rose-400';
                         }
-                    }).catch(() => {});
+                    });
 
                 } catch (e) {
                     console.warn('Firebase init exception:', e);
                     isCloudLoaded = true;
+                    cloudStatusText.value = 'Cloud Error: ' + e.message;
+                    cloudStatusColor.value = 'text-rose-400';
                 }
+            } else {
+                isCloudLoaded = true;
+                cloudStatusText.value = 'Cloud Config Missing';
+                cloudStatusColor.value = 'text-rose-400';
             }
         };
 
-        const saveGradesToStorage = async () => {
-            // Guard against wiping cloud data on an uninitialized local session
-            if (!isCloudLoaded && Object.keys(grades.value).length === 0) {
+        // Write directly to Cloud Firestore only
+        const saveGradesToCloud = async () => {
+            if (!isCloudLoaded) {
+                console.warn('Waiting for cloud connection before pushing writes...');
                 return;
             }
-
-            try {
-                localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
-            } catch (e) {}
 
             if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
                 try {
@@ -1030,15 +1125,59 @@ createApp({
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                 } catch (e) {
-                    console.warn('Error saving to Firestore:', e);
+                    console.warn('Error pushing write to Firestore:', e);
+                    if (String(e).includes('permission-denied')) {
+                        cloudStatusText.value = 'Permission Denied (Publish Firestore Rules)';
+                        cloudStatusColor.value = 'text-rose-400';
+                    }
                 }
             }
         };
 
+        // Delete play directly from Cloud Firestore
         const deleteGrade = (key) => {
             delete grades.value[key];
             grades.value = { ...grades.value };
-            saveGradesToStorage();
+            saveGradesToCloud();
+        };
+
+        const totalHistoricalCount = computed(() => {
+            if (!grades.value) return 0;
+            return Object.values(grades.value).filter(g => g && g.grade).length;
+        });
+
+        const copyExportJson = () => {
+            const dataStr = JSON.stringify(grades.value, null, 2);
+            navigator.clipboard.writeText(dataStr).then(() => {
+                exportButtonText.value = 'Copied! ✓';
+                setTimeout(() => { exportButtonText.value = 'Copy Backup JSON to Clipboard'; }, 2000);
+            });
+        };
+
+        const executeImport = () => {
+            if (!importJsonText.value.trim()) return;
+            try {
+                const parsed = JSON.parse(importJsonText.value);
+                if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    throw new Error("Invalid format. Expected JSON object.");
+                }
+                const merged = { ...grades.value };
+                let count = 0;
+                Object.entries(parsed).forEach(([k, raw]) => {
+                    if (raw && raw.grade) {
+                        merged[k] = normalizeGradeItem(raw, k);
+                        count++;
+                    }
+                });
+                grades.value = merged;
+                saveGradesToCloud();
+                importNotice.value = `Successfully written ${count} plays directly to Firestore Cloud!`;
+                importNoticeColor.value = 'text-emerald-400';
+                setTimeout(() => { importNotice.value = ''; }, 3500);
+            } catch (e) {
+                importNotice.value = 'Error parsing JSON: ' + e.message;
+                importNoticeColor.value = 'text-rose-400';
+            }
         };
 
         // Timezone-safe string date extraction
@@ -1529,7 +1668,7 @@ createApp({
             'phoenix': 'suns', 'phoenix suns': 'suns', 'suns': 'suns', 'phx': 'suns',
             'portland': 'trail blazers', 'portland trail blazers': 'trail blazers', 'trail blazers': 'trail blazers', 'blazers': 'trail blazers', 'por': 'trail blazers',
             'sacramento': 'kings', 'sacramento kings': 'kings', 'kings': 'kings', 'sac': 'kings',
-            'san antonio': 'spurs', 'san antonio spurs': 'spurs', 'spurs': 'spurs', 'sas': 'spurs',
+            'san antonio': 'spurs', 'san antonio spurs': 'spurs', 'spurs': 'spurs', 'sas': 'spurs', 'sa': 'spurs',
             'toronto': 'raptors', 'toronto raptors': 'raptors', 'raptors': 'raptors', 'tor': 'raptors',
             'utah': 'jazz', 'utah jazz': 'jazz', 'jazz': 'jazz', 'uta': 'jazz',
             'washington': 'wizards', 'washington wizards': 'wizards', 'wizards': 'wizards', 'was': 'wizards'
@@ -1758,7 +1897,7 @@ createApp({
 
                     if (isLive) liveInProgressCount++;
 
-                    // Auto-grade completed games
+                    // Auto-grade completed games directly to cloud
                     if (isCompleted && awayScore !== null && homeScore !== null) {
                         const current = grades.value[key] || { grade: null, awayScore: null, homeScore: null };
                         current.awayScore = awayScore;
@@ -1776,9 +1915,8 @@ createApp({
                 }
             });
 
-            // Only persist to cloud if actual game status changes occurred
             if (autoGradedCount > 0) {
-                saveGradesToStorage();
+                saveGradesToCloud();
             }
             isPullingScores.value = false;
             lastScoreSyncTime.value = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1871,7 +2009,6 @@ createApp({
 
         // Timeframe Historical Records Computation
         const isDateInTimeframe = (dateStr, tf) => {
-            // "This Season" always includes every historical and legacy play
             if (tf === 'season') return true;
             if (!dateStr) return tf === 'today';
 
@@ -2022,24 +2159,7 @@ createApp({
         };
 
         onMounted(() => {
-            // Multi-key local storage recovery: pull from current and prior keys
-            const localKeys = ['nba_quant_grades', 'nba_grades', 'cbb_quant_grades'];
-            const mergedLocal = {};
-            localKeys.forEach(k => {
-                try {
-                    const saved = localStorage.getItem(k);
-                    if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (parsed && typeof parsed === 'object') {
-                            Object.assign(mergedLocal, parsed);
-                        }
-                    }
-                } catch (e) {}
-            });
-            if (Object.keys(mergedLocal).length > 0) {
-                grades.value = mergedLocal;
-            }
-
+            // Pure Cloud Sync initialization: No local storage
             initFirebase();
             fetchSheetData();
             startAutoRefresh();
@@ -2082,6 +2202,16 @@ createApp({
             allTimeStrongRecord,
             filteredGradedGames,
             deleteGrade,
+            showDataModal,
+            totalHistoricalCount,
+            copyExportJson,
+            exportButtonText,
+            importJsonText,
+            executeImport,
+            importNotice,
+            importNoticeColor,
+            cloudStatusText,
+            cloudStatusColor,
             getModelVal,
             formatMetric,
             formatDeltaNum,
