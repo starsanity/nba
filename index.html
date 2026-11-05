@@ -10,6 +10,10 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Firebase Compat SDKs for Instant Standalone Real-Time Sync -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,7 +61,7 @@
     <!-- Top Header & Branding -->
     <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-4 py-3">
         <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-extrabold text-base sm:text-lg shrink-0">
                     🏀
                 </div>
@@ -68,11 +72,13 @@
                             NBA
                         </span>
                     </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Multi-Tier Consensus &amp; Edge Engine (Pro Analytics)</p>
                 </div>
             </div>
 
-            <!-- Live Game Count & Shared Cloud Status Indicator -->
-            <div class="flex items-center gap-1.5">
+            <!-- Top Header Right Badges -->
+            <div class="flex items-center gap-2">
+                <!-- Live Game Count Pill -->
                 <button 
                     v-if="liveGamesCount > 0"
                     @click="quickFilter = quickFilter === 'live' ? 'all' : 'live'"
@@ -82,63 +88,6 @@
                     <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                     <span>{{ liveGamesCount }} LIVE</span>
                 </button>
-                
-                <!-- Shared Cloud Status Badge -->
-                <div
-                    class="px-2 py-1 rounded-lg text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 border select-none"
-                    :class="{
-                        'bg-emerald-950/60 border-emerald-700/60 text-emerald-300': cloudSyncStatus === 'synced',
-                        'bg-amber-950/60 border-amber-700/60 text-amber-300': cloudSyncStatus === 'connecting',
-                        'bg-slate-800 border-slate-700 text-slate-400': cloudSyncStatus === 'offline' || cloudSyncStatus === 'local'
-                    }"
-                    title="All users & devices connect to the shared master ledger"
-                >
-                    <span class="w-1.5 h-1.5 rounded-full"
-                          :class="{
-                              'bg-emerald-400 animate-pulse': cloudSyncStatus === 'synced',
-                              'bg-amber-400 animate-ping': cloudSyncStatus === 'connecting',
-                              'bg-slate-500': cloudSyncStatus === 'offline' || cloudSyncStatus === 'local'
-                          }"></span>
-                    <span class="hidden sm:inline">Shared Cloud Sync</span>
-                    <span class="text-[9px] font-mono-num uppercase px-1 rounded bg-slate-900/60 text-emerald-300">
-                        {{ cloudSyncStatus === 'synced' ? 'Live' : (cloudSyncStatus === 'connecting' ? 'Syncing' : 'Local') }}
-                    </span>
-                </div>
-
-                <button
-                    @click="fetchSheetData"
-                    :disabled="loading"
-                    class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer text-xs flex items-center gap-1"
-                    title="Sync sheet data now"
-                >
-                    <svg class="w-3.5 h-3.5" :class="{'animate-spin': loading}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    <span class="hidden sm:inline text-[11px]">Sync</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Status Notification Banner -->
-        <div v-if="statusMessage" class="mt-2.5 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 border"
-             :class="{
-                 'bg-emerald-950/60 border-emerald-800/70 text-emerald-300': statusType === 'success',
-                 'bg-amber-950/60 border-amber-800/70 text-amber-300': statusType === 'warning',
-                 'bg-rose-950/60 border-rose-800/70 text-rose-300': statusType === 'error',
-                 'bg-slate-800/80 border-slate-700 text-slate-300': statusType === 'info'
-             }">
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full shrink-0"
-                      :class="{
-                          'bg-emerald-400': statusType === 'success',
-                          'bg-amber-400': statusType === 'warning',
-                          'bg-rose-400': statusType === 'error',
-                          'bg-sky-400 animate-pulse': statusType === 'info'
-                      }"></span>
-                <span>{{ statusMessage }}</span>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-                <button @click="statusMessage = ''" class="text-slate-400 hover:text-white px-1">✕</button>
             </div>
         </div>
 
@@ -174,7 +123,7 @@
                 <span class="truncate">RECORD</span>
                 <span class="px-1.5 py-0.2 text-[9px] sm:text-[10px] rounded-full font-mono-num shrink-0"
                       :class="activeTab === 'record' ? 'bg-orange-800/80 text-orange-100' : 'bg-slate-800 text-slate-400'">
-                    {{ strongRecord.w }}-{{ strongRecord.l }}
+                    {{ strongRecord.w }}-{{ strongRecord.l }}-{{ strongRecord.p }}
                 </span>
             </button>
         </div>
@@ -186,7 +135,7 @@
         <!-- ==================== MATCHUPS TAB ==================== -->
         <div v-if="activeTab === 'matchups'" class="space-y-4">
             
-            <!-- Search & Gatekeeper Filter Bar -->
+            <!-- Search & Filter Controls -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3 shadow-sm">
                 <div class="flex flex-col sm:flex-row gap-2">
                     <div class="relative flex-1">
@@ -196,7 +145,7 @@
                         <input 
                             type="text" 
                             v-model="searchQuery" 
-                            placeholder="Search team... (e.g. Celtics, Lakers, Warriors, Knicks, Bucks)"
+                            placeholder="Search NBA team... (e.g. Celtics, Lakers, Warriors, Knicks, Bucks)"
                             class="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
                         >
                         <button 
@@ -209,20 +158,17 @@
                     </div>
                 </div>
 
-                <!-- Delta Threshold Filter Pills -->
+                <!-- Filter Pills -->
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
                     <div class="flex flex-wrap items-center gap-1.5">
                         <button 
                             v-for="f in filterOptions" 
                             :key="f.id"
                             @click="quickFilter = f.id"
-                            class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+                            class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer"
                             :class="quickFilter === f.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
                         >
-                            <span>{{ f.label }}</span>
-                            <span v-if="f.badge !== undefined" class="px-1 py-0.1 text-[9px] font-mono-num rounded bg-slate-800 text-slate-400">
-                                {{ f.badge }}
-                            </span>
+                            {{ f.label }}
                         </button>
                     </div>
                 </div>
@@ -233,7 +179,7 @@
                 <div class="text-3xl">🔍</div>
                 <div class="text-sm font-semibold text-slate-300">No NBA matchups match your filter.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Try switching filters or clearing your search query.
+                    Try clearing your search query or refreshing the sheet sync.
                 </p>
                 <div class="flex justify-center gap-2 pt-2">
                     <button @click="searchQuery = ''; quickFilter = 'all'" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200">
@@ -253,7 +199,7 @@
                     class="bg-slate-900 border border-slate-800 hover:border-slate-700/90 rounded-xl overflow-hidden shadow-lg transition flex flex-col justify-between"
                 >
                     <div>
-                        <!-- Card Top Bar: Matchup Teams -->
+                        <!-- Matchup Header -->
                         <div class="p-3.5 bg-slate-950/60 border-b border-slate-800/80 flex items-start justify-between gap-2">
                             <div>
                                 <div class="flex items-center flex-wrap gap-1.5">
@@ -269,20 +215,25 @@
                                         NEUTRAL
                                     </span>
                                 </div>
-                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                                    <span v-if="getGameDisplayTime(game)" class="inline-flex items-center gap-1 text-amber-400 font-mono-num font-semibold text-[11px]">
-                                        <span>🕒</span>
-                                        <span>{{ getGameDisplayTime(game) }}</span>
-                                    </span>
-                                    <span v-if="getGameDisplayTime(game)" class="text-slate-600">•</span>
+                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
                                     <span>Away: <strong class="text-slate-300">{{ game.road }}</strong></span>
                                     <span>•</span>
                                     <span>Home: <strong class="text-slate-300">{{ game.home }}</strong></span>
+                                    <span v-if="game.tipOffFormatted">•</span>
+                                    <span v-if="game.tipOffFormatted" class="text-sky-300 font-mono-num font-semibold">🕒 {{ game.tipOffFormatted }}</span>
                                 </div>
+                            </div>
+
+                            <!-- Live Odds Indicator -->
+                            <div class="text-right shrink-0">
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Current Line</span>
+                                <span class="text-xs font-bold font-mono-num px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 inline-block mt-0.5">
+                                    {{ formatFavoredLabel(game) }}
+                                </span>
                             </div>
                         </div>
 
-                        <!-- Quantitative Delta Gatekeeper Signal Box -->
+                        <!-- Delta Classification Signal Box -->
                         <div class="p-3.5">
                             <div v-if="game.result" class="rounded-xl border p-3 space-y-2.5 transition" :class="getResultBoxClasses(game.result)">
                                 <div class="flex items-start justify-between gap-2">
@@ -291,7 +242,6 @@
                                             <span class="text-[10px] font-bold uppercase tracking-wider opacity-80 block">
                                                 Delta Classification
                                             </span>
-                                            <!-- Delta Gatekeeper Tag -->
                                             <span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase font-mono-num border"
                                                   :class="getDeltaBadgeClass(game.result.delta)">
                                                 Δ {{ formatDeltaNum(game.result.delta) }} pts
@@ -299,12 +249,12 @@
                                         </div>
                                         <div class="text-sm font-extrabold tracking-tight flex items-center gap-1.5 flex-wrap mt-0.5">
                                             <span>{{ game.result.finalAction }}</span>
-                                            <span v-if="game.result.t3Downgrade" class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
-                                                ⚠️ T3 Unanimous Opposite
+                                            <span v-if="game.result.t3Downgrade" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                                                ⚠️ T3 Opposite (Downgraded to Lean)
                                             </span>
                                         </div>
                                         <div class="text-[10px] opacity-75 mt-0.5">
-                                            {{ getDeltaCharacteristic(game.result.delta, game.result.finalAction) }}
+                                            {{ getDeltaCharacteristic(game.result.delta, game.result.t3Downgrade) }}
                                         </div>
                                     </div>
 
@@ -318,7 +268,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Tier 1 / Tier 2 / Tier 3 Breakdown Grid -->
+                                <!-- Tier Breakdown Grid -->
                                 <div class="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-xs">
                                     <!-- Tier 1 -->
                                     <div class="bg-slate-950/60 rounded-lg p-2 border border-white/5">
@@ -330,7 +280,7 @@
                                             {{ game.result.t1.dir === 'Home' ? game.home : (game.result.t1.dir === 'Away' ? game.road : 'Split') }}
                                         </div>
                                         <div class="text-[10px] font-mono-num text-slate-400 mt-0.5 flex justify-between">
-                                            <span>Δ {{ game.result.t1.edge.toFixed(1) }}</span>
+                                            <span>Edge: {{ game.result.t1.edge.toFixed(1) }}</span>
                                             <span>{{ game.result.t1.agreeCount }}/{{ game.result.t1.total }}</span>
                                         </div>
                                     </div>
@@ -345,7 +295,7 @@
                                             {{ game.result.t2.dir === 'Home' ? game.home : (game.result.t2.dir === 'Away' ? game.road : 'Split') }}
                                         </div>
                                         <div class="text-[10px] font-mono-num text-slate-400 mt-0.5 flex justify-between">
-                                            <span>Δ {{ game.result.t2.edge.toFixed(1) }}</span>
+                                            <span>Edge: {{ game.result.t2.edge.toFixed(1) }}</span>
                                             <span>{{ game.result.t2.agreeCount }}/{{ game.result.t2.total }}</span>
                                         </div>
                                     </div>
@@ -360,15 +310,15 @@
                                             {{ game.result.t3.dir === 'Home' ? game.home : (game.result.t3.dir === 'Away' ? game.road : 'Split') }}
                                         </div>
                                         <div class="text-[10px] font-mono-num text-slate-400 mt-0.5 flex justify-between">
-                                            <span>Δ {{ game.result.t3.edge.toFixed(1) }}</span>
+                                            <span>Edge: {{ game.result.t3.edge.toFixed(1) }}</span>
                                             <span>{{ game.result.t3.agreeCount }}/{{ game.result.t3.total }}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Automated Live Score & Grade Display -->
+                                <!-- Live Score & Outcomes -->
                                 <div class="pt-2.5 border-t border-white/10 text-xs">
-                                    <!-- 1. LIVE IN PROGRESS STATE -->
+                                    <!-- LIVE STATE -->
                                     <div v-if="isGameLive(game)" class="rounded-xl bg-slate-950/90 border border-emerald-700/60 p-3 space-y-2.5 shadow-inner">
                                         <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
                                             <div class="flex items-center gap-2">
@@ -380,7 +330,7 @@
                                                     {{ getGameLiveStatus(game)?.detail || 'In Progress' }}
                                                 </span>
                                             </div>
-                                            <!-- Live Score -->
+                                            <!-- Scoreboard -->
                                             <div class="text-sm font-black text-white font-mono-num flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
                                                 <span :class="{'text-emerald-400': getDisplayScore(game).away > getDisplayScore(game).home}">
                                                     {{ game.road }} {{ getDisplayScore(game).away }}
@@ -392,7 +342,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Live Win Probability Meter -->
+                                        <!-- Win Prob Bar -->
                                         <div v-if="calculateLiveCoverProb(game)" class="space-y-1.5">
                                             <div class="flex items-center justify-between gap-2 text-xs">
                                                 <div class="flex items-center gap-1.5">
@@ -422,8 +372,8 @@
                                         </div>
                                     </div>
 
-                                    <!-- 2. COMPLETED FINAL STATE -->
-                                    <div v-else-if="!isGamePre(game) && (getGameLiveStatus(game)?.isCompleted || getGameGrade(game).grade)" class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 font-mono-num">
+                                    <!-- COMPLETED FINAL STATE -->
+                                    <div v-else-if="getGameLiveStatus(game)?.isCompleted || getGameGrade(game).grade" class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 font-mono-num">
                                         <div class="flex items-center gap-2">
                                             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                                 {{ getGameLiveStatus(game)?.detail || 'Final' }}
@@ -433,8 +383,8 @@
                                             </span>
                                         </div>
 
-                                        <!-- Graded Outcome Badge for Strong Bets -->
-                                        <div v-if="game.result?.finalAction === 'STRONG BET' && getGameGrade(game).grade" class="flex items-center gap-1.5">
+                                        <!-- Outcome Badge -->
+                                        <div v-if="getGameGrade(game).grade" class="flex items-center gap-1.5">
                                             <span 
                                                 class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border"
                                                 :class="{
@@ -446,33 +396,22 @@
                                                 {{ getGameGrade(game).grade === 'W' ? 'COVER (WIN)' : (getGameGrade(game).grade === 'L' ? 'LOSS' : 'PUSH') }}
                                             </span>
                                         </div>
-                                        <div v-else-if="game.result?.finalAction === 'STRONG BET'" class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                                            Final (Grading...)
-                                        </div>
                                         <div v-else class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                            Final ({{ game.result?.finalAction?.includes('LEAN') ? 'Lean / Graded' : 'Pass' }})
+                                            Final
                                         </div>
                                     </div>
 
-                                    <!-- 3. PREGAME / SCHEDULED STATE -->
+                                    <!-- PREGAME / SCHEDULED STATE -->
                                     <div v-else class="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-950/40 border border-slate-800 text-slate-400 font-mono-num">
-                                        <span class="text-slate-500">ESPN NBA Scoreboard:</span>
-                                        <span v-if="getGameLiveStatus(game)?.startTime" class="text-slate-300 font-semibold flex items-center gap-1">
-                                            <span>🕒 Tip-off:</span>
-                                            <span class="text-amber-400">{{ getGameLiveStatus(game).startTime }}</span>
-                                        </span>
-                                        <span v-else-if="getGameLiveStatus(game)?.detail && getGameLiveStatus(game)?.detail !== 'In Progress'" class="text-slate-300 font-semibold">
-                                            {{ getGameLiveStatus(game).detail }}
+                                        <span class="text-slate-500">Scheduled:</span>
+                                        <span v-if="getGameLiveStatus(game)?.startTime || game.tipOffFormatted" class="text-slate-300">
+                                            Tip-off: {{ getGameLiveStatus(game)?.startTime || game.tipOffFormatted }}
                                         </span>
                                         <span v-else class="text-slate-500 italic">
-                                            Scheduled / Upcoming
+                                            Awaiting Tip-off
                                         </span>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div v-else class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-400 font-semibold">
-                                OFF / N/A — No Current Line Available
                             </div>
                         </div>
                     </div>
@@ -488,12 +427,12 @@
                         </button>
 
                         <div v-if="game.showModels" class="mt-2.5 pt-2.5 border-t border-slate-800/80 space-y-2.5 text-[11px]">
-                            <!-- Tier 1 Models -->
+                            <!-- Tier 1 -->
                             <div>
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">
-                                    Tier 1 Core Models (Delta &ge; 4.0 = Strong Bet | 0.0 - 3.5 = Lean)
+                                    Tier 1 Core Models
                                 </div>
-                                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 font-mono-num">
+                                <div class="grid grid-cols-5 gap-1.5 font-mono-num">
                                     <div v-for="mKey in modelTiers.t1" :key="mKey" 
                                          class="p-1.5 rounded bg-slate-900 border text-center"
                                          :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
@@ -503,12 +442,12 @@
                                 </div>
                             </div>
 
-                            <!-- Tier 2 Models -->
+                            <!-- Tier 2 -->
                             <div>
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1">
-                                    Tier 2 Secondary Models (Edge Confirmation)
+                                    Tier 2 Secondary Models
                                 </div>
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono-num">
+                                <div class="grid grid-cols-4 gap-1.5 font-mono-num">
                                     <div v-for="mKey in modelTiers.t2" :key="mKey" 
                                          class="p-1.5 rounded bg-slate-900 border text-center"
                                          :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
@@ -518,10 +457,10 @@
                                 </div>
                             </div>
 
-                            <!-- Tier 3 Models -->
+                            <!-- Tier 3 -->
                             <div>
                                 <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                                    Tier 3 Check Models (Unanimous Opposite = Downgrade)
+                                    Tier 3 Check Models
                                 </div>
                                 <div class="grid grid-cols-3 gap-1.5 font-mono-num">
                                     <div v-for="mKey in modelTiers.t3" :key="mKey" 
@@ -541,33 +480,30 @@
         <!-- ==================== SUMMARY TAB ==================== -->
         <div v-if="activeTab === 'summary'" class="space-y-4">
             
-            <!-- Summary KPI Metrics reflecting Delta Gatekeeper -->
+            <!-- Summary KPI Metrics -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Analyzed</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Matchups</span>
                     <div class="text-xl font-extrabold text-white font-mono-num mt-0.5">{{ analyzedGames.length }}</div>
                 </div>
                 <div class="bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Strong Bets (&ge;4.0)</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Strong Bets (≥4.0)</span>
                     <div class="text-xl font-extrabold text-emerald-300 font-mono-num mt-0.5">{{ strongBetsCount }}</div>
                 </div>
                 <div class="bg-sky-950/40 border border-sky-800/60 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Leans (0.0 - 3.5)</span>
-                    <div class="text-xl font-extrabold text-sky-300 font-mono-num mt-0.5">{{ leansCount }}</div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Leans (0.0-3.5)</span>
+                    <div class="text-xl font-extrabold text-sky-300 font-mono-num mt-0.5">{{ tier2PlaysCount }}</div>
                 </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-rose-400">🔴 Live In-Progress</span>
-                    <div class="text-xl font-extrabold text-rose-300 font-mono-num mt-0.5">{{ liveGamesCount }}</div>
+                <div class="bg-purple-950/40 border border-purple-800/60 rounded-xl p-3">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Actionable Plays</span>
+                    <div class="text-xl font-extrabold text-purple-300 font-mono-num mt-0.5">{{ actionableGames.length }}</div>
                 </div>
             </div>
 
             <!-- Summary Controls -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                    <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-                        <input type="checkbox" v-model="showOnlyActionable" class="rounded bg-slate-950 border-slate-700 text-orange-500 focus:ring-0">
-                        <span>Show Actionable Plays Only ({{ actionableGames.length }})</span>
-                    </label>
+                <div class="text-xs font-semibold text-slate-300">
+                    Chronological Tip-off Order &bull; All Games Actionable (Strong Bets or Leans)
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -580,29 +516,21 @@
                 </div>
             </div>
 
-            <!-- Empty Summary State -->
-            <div v-if="summaryList.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
-                <div class="text-3xl">📊</div>
-                <div class="text-sm font-semibold text-slate-300">No matching plays to display.</div>
-                <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Try switching filters or syncing the latest sheet.
-                </p>
-            </div>
-
             <!-- Summary Table -->
-            <div v-else class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-950/90 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 <th class="py-3 px-3.5">Matchup</th>
                                 <th class="py-3 px-3 text-center">Line</th>
-                                <th class="py-3 px-3">Target Pick</th>
-                                <th class="py-3 px-3">Gatekeeper Signal</th>
                                 <th class="py-3 px-3 text-center">Delta</th>
+                                <th class="py-3 px-3">Target Pick</th>
+                                <th class="py-3 px-3">Classification</th>
                                 <th class="py-3 px-3 text-center">T1 Edge</th>
                                 <th class="py-3 px-3 text-center">T2 Edge</th>
-                                <th class="py-3 px-3 text-center">Result</th>
+                                <th class="py-3 px-3 text-center">T3 Check</th>
+                                <th class="py-3 px-3 text-center">Outcome</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/70 text-xs">
@@ -617,17 +545,19 @@
                                         <span class="text-[10px] text-slate-400">{{ game.neutral == 1 ? 'vs.' : '@' }}</span>
                                         <span class="text-orange-400">{{ game.home }}</span>
                                     </div>
-                                    <div class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1.5 flex-wrap mt-0.5">
-                                        <span v-if="getGameDisplayTime(game)" class="text-amber-400 font-semibold">🕒 {{ getGameDisplayTime(game) }}</span>
-                                        <span v-if="getGameDisplayTime(game)" class="text-slate-600">|</span>
-                                        <span>Open: {{ formatMetric(game.raw.lineopen) }}</span>
-                                        <span>|</span>
+                                    <div class="text-[10px] text-slate-400 font-mono-num flex items-center gap-2">
+                                        <span v-if="game.tipOffFormatted" class="text-sky-300 font-semibold">🕒 {{ game.tipOffFormatted }}</span>
                                         <span>Avg: {{ formatMetric(game.raw.lineavg) }}</span>
                                     </div>
                                 </td>
 
                                 <td class="py-3 px-3 text-center font-mono-num font-bold text-slate-200">
-                                    {{ formatMetric(game.liveLine) }}
+                                    <span>{{ formatMetric(game.liveLine) }}</span>
+                                    <span v-if="game.lineSource === 'ESPN'" class="block text-[9px] text-emerald-400 uppercase font-sans">ESPN</span>
+                                </td>
+
+                                <td class="py-3 px-3 text-center font-mono-num font-black" :class="getDeltaBadgeClass(game.result.delta)">
+                                    Δ {{ formatDeltaNum(game.result.delta) }}
                                 </td>
 
                                 <td class="py-3 px-3">
@@ -644,27 +574,30 @@
                                 </td>
 
                                 <td class="py-3 px-3 text-center font-mono-num">
-                                    <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold border" :class="getDeltaBadgeClass(game.result.delta)">
-                                        Δ {{ formatDeltaNum(game.result.delta) }}
+                                    <div class="font-bold" :class="game.result.t1.status === 'BET' ? 'text-emerald-400' : 'text-slate-400'">
+                                        {{ game.result.t1.edge.toFixed(1) }}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500">{{ game.result.t1.dir }}</div>
+                                </td>
+
+                                <td class="py-3 px-3 text-center font-mono-num">
+                                    <div class="font-bold text-slate-400">
+                                        {{ game.result.t2.edge.toFixed(1) }}
+                                    </div>
+                                    <div class="text-[10px] text-slate-500">{{ game.result.t2.dir }}</div>
+                                </td>
+
+                                <td class="py-3 px-3 text-center font-mono-num">
+                                    <span v-if="game.result.t3Downgrade" class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
+                                        DOWNGRADE
+                                    </span>
+                                    <span v-else class="text-[11px] text-slate-400">
+                                        {{ game.result.t3.dir }}
                                     </span>
                                 </td>
 
                                 <td class="py-3 px-3 text-center font-mono-num">
-                                    <div class="font-bold" :class="game.result.t1.status === 'BET' ? 'text-emerald-400' : (game.result.t1.status === 'LEAN' ? 'text-sky-400' : 'text-slate-500')">
-                                        {{ game.result.t1.status }} ({{ game.result.t1.edge.toFixed(1) }})
-                                    </div>
-                                    <div class="text-[10px] text-slate-400">{{ game.result.t1.dir }}</div>
-                                </td>
-
-                                <td class="py-3 px-3 text-center font-mono-num">
-                                    <div class="font-bold" :class="game.result.t2.status === 'BET' ? 'text-emerald-400' : (game.result.t2.status === 'LEAN' ? 'text-sky-400' : 'text-slate-500')">
-                                        {{ game.result.t2.status }} ({{ game.result.t2.edge.toFixed(1) }})
-                                    </div>
-                                    <div class="text-[10px] text-slate-400">{{ game.result.t2.dir }}</div>
-                                </td>
-
-                                <td class="py-3 px-3 text-center font-mono-num">
-                                    <span v-if="!isGamePre(game) && game.result?.finalAction === 'STRONG BET' && getGameGrade(game).grade" 
+                                    <span v-if="getGameGrade(game).grade" 
                                           class="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border"
                                           :class="{
                                               'bg-emerald-500/20 text-emerald-300 border-emerald-500/40': getGameGrade(game).grade === 'W',
@@ -674,17 +607,11 @@
                                     >
                                         {{ getGameGrade(game).grade === 'W' ? 'WIN' : (getGameGrade(game).grade === 'L' ? 'LOSS' : 'PUSH') }}
                                     </span>
-
-                                    <div v-else-if="isGameLive(game)" class="space-y-1">
-                                        <div class="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 text-[10px] font-bold">
-                                            LIVE: {{ getDisplayScore(game).away }}-{{ getDisplayScore(game).home }}
-                                        </div>
+                                    <div v-else-if="isGameLive(game)" class="text-[10px] font-bold text-emerald-400 font-mono-num">
+                                        LIVE: {{ getDisplayScore(game).away }}-{{ getDisplayScore(game).home }}
                                     </div>
-                                    <span v-else-if="!isGamePre(game) && getGameLiveStatus(game)?.isCompleted" class="text-slate-400 font-bold text-[10px]">
-                                        FINAL: {{ getDisplayScore(game).away }}-{{ getDisplayScore(game).home }}
-                                    </span>
-                                    <span v-else-if="isGamePre(game)" class="text-amber-400/90 font-medium text-[10px]">
-                                        {{ getGameLiveStatus(game)?.startTime ? getGameLiveStatus(game).startTime : 'Scheduled' }}
+                                    <span v-else-if="getGameLiveStatus(game)?.isCompleted" class="text-slate-400 font-bold text-[10px]">
+                                        FINAL
                                     </span>
                                     <span v-else class="text-slate-600 font-semibold">—</span>
                                 </td>
@@ -695,156 +622,111 @@
             </div>
         </div>
 
-        <!-- ==================== RECORD TRACKER TAB ==================== -->
+        <!-- ==================== RECORD TAB ==================== -->
         <div v-if="activeTab === 'record'" class="space-y-4">
             
-            <!-- Historical Timeframe Selector Bar -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-sm space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <span>📅</span>
-                        <span>Performance Timeframe</span>
-                    </span>
-                    <span class="text-[10px] font-mono-num text-slate-400">
-                        {{ getTimeframeGradedCount(timeframeFilter) }} Graded Plays
-                    </span>
-                </div>
+            <!-- Timeframe Selector Pills -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Performance Window:</span>
                 <div class="flex flex-wrap items-center gap-1.5">
                     <button 
                         v-for="tf in timeframeOptions" 
                         :key="tf.id"
-                        @click="timeframeFilter = tf.id"
-                        class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                        :class="timeframeFilter === tf.id ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
+                        @click="activeTimeframe = tf.id"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                        :class="activeTimeframe === tf.id ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
                     >
-                        <span>{{ tf.label }}</span>
-                        <span class="px-1.5 py-0.2 text-[9px] rounded-full font-mono-num"
-                              :class="timeframeFilter === tf.id ? 'bg-orange-800 text-orange-100' : 'bg-slate-800 text-slate-500'">
-                            {{ getTimeframeGradedCount(tf.id) }}
-                        </span>
+                        {{ tf.label }}
                     </button>
                 </div>
             </div>
 
-            <!-- Record Hero Cards Grid: Strong Bets, Leans, and Overall Record -->
+            <!-- KPI Hero Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <!-- 1. Strong Bets Card (>= 4.0 pts) -->
-                <div class="bg-emerald-950/20 border border-emerald-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                            <span>Strong Bets</span>
-                            <span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-mono-num">&ge; 4.0 pts</span>
-                        </div>
-                        <div class="text-3xl font-black text-white font-mono-num mt-1">
-                            {{ strongRecord.w }}-{{ strongRecord.l }}-{{ strongRecord.p }}
-                        </div>
+                <!-- Strong Bets -->
+                <div class="bg-slate-900 border border-emerald-900/60 rounded-xl p-4 shadow-sm bg-gradient-to-b from-emerald-950/20 to-slate-900">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Strong Bets (≥4.0)</span>
+                    <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        {{ strongRecord.w }}-{{ strongRecord.l }}-{{ strongRecord.p }}
                     </div>
-                    <div class="pt-2 border-t border-emerald-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-emerald-300 font-extrabold text-base">{{ strongRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[11px]">{{ strongRecord.w }}/{{ strongRecord.decided }} Won</span>
+                    <div class="text-[11px] font-mono-num mt-1 flex justify-between text-emerald-300">
+                        <span>Win Rate: <strong>{{ strongRecord.winPct }}%</strong></span>
+                        <span>{{ strongRecord.total }} Plays</span>
                     </div>
                 </div>
 
-                <!-- 2. Leans Card (0.0 - 3.5 pts) -->
-                <div class="bg-sky-950/20 border border-sky-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                            <span>Leans</span>
-                            <span class="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-mono-num">0.0 - 3.5 pts</span>
-                        </div>
-                        <div class="text-3xl font-black text-white font-mono-num mt-1">
-                            {{ leansRecord.w }}-{{ leansRecord.l }}-{{ leansRecord.p }}
-                        </div>
+                <!-- Leans -->
+                <div class="bg-slate-900 border border-sky-900/60 rounded-xl p-4 shadow-sm bg-gradient-to-b from-sky-950/20 to-slate-900">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Leans (0.0 - 3.5)</span>
+                    <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        {{ leanRecord.w }}-{{ leanRecord.l }}-{{ leanRecord.p }}
                     </div>
-                    <div class="pt-2 border-t border-sky-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-sky-300 font-extrabold text-base">{{ leansRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[11px]">{{ leansRecord.w }}/{{ leansRecord.decided }} Won</span>
+                    <div class="text-[11px] font-mono-num mt-1 flex justify-between text-sky-300">
+                        <span>Win Rate: <strong>{{ leanRecord.winPct }}%</strong></span>
+                        <span>{{ leanRecord.total }} Plays</span>
                     </div>
                 </div>
 
-                <!-- 3. Overall Record Card (All Actionable) -->
-                <div class="bg-purple-950/20 border border-purple-800/50 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-400">
-                            <span>Overall Record</span>
-                            <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] font-mono-num">All Plays</span>
-                        </div>
-                        <div class="text-3xl font-black text-white font-mono-num mt-1">
-                            {{ overallRecord.w }}-{{ overallRecord.l }}-{{ overallRecord.p }}
-                        </div>
+                <!-- Overall -->
+                <div class="bg-slate-900 border border-purple-900/60 rounded-xl p-4 shadow-sm bg-gradient-to-b from-purple-950/20 to-slate-900">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-purple-400">All Actionable Plays</span>
+                    <div class="text-2xl font-black text-white font-mono-num mt-1">
+                        {{ overallRecord.w }}-{{ overallRecord.l }}-{{ overallRecord.p }}
                     </div>
-                    <div class="pt-2 border-t border-purple-900/40 mt-3 flex items-center justify-between text-[11px] font-mono-num">
-                        <span class="text-purple-300 font-extrabold text-base">{{ overallRecord.winPct }}%</span>
-                        <span class="text-slate-400 text-[11px]">{{ overallRecord.w }}/{{ overallRecord.decided }} Won</span>
+                    <div class="text-[11px] font-mono-num mt-1 flex justify-between text-purple-300">
+                        <span>Win Rate: <strong>{{ overallRecord.winPct }}%</strong></span>
+                        <span>{{ overallRecord.total }} Plays</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Unified Cloud Sync Status Bar -->
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
-                <div class="flex items-center gap-2.5">
-                    <span class="relative flex h-2.5 w-2.5">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                    </span>
-                    <div>
-                        <div class="text-xs font-bold text-slate-200 flex items-center gap-2 flex-wrap">
-                            <span>Unified Global Cloud Sync Active</span>
-                            <span class="text-[10px] font-mono-num px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                Master Consensus Ledger
-                            </span>
-                        </div>
-                        <div class="text-[11px] text-slate-400">
-                            All users and devices share the exact same real-time picks and historical win/loss record.
-                        </div>
-                    </div>
+            <!-- Ledger Filter Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-slate-400 font-semibold">Classification:</span>
+                    <button 
+                        @click="recordSignalFilter = 'all'"
+                        class="px-2.5 py-1 rounded-md text-[11px] font-bold transition"
+                        :class="recordSignalFilter === 'all' ? 'bg-orange-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800'"
+                    >
+                        All
+                    </button>
+                    <button 
+                        @click="recordSignalFilter = 'strong'"
+                        class="px-2.5 py-1 rounded-md text-[11px] font-bold transition"
+                        :class="recordSignalFilter === 'strong' ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800'"
+                    >
+                        Strong Bets
+                    </button>
+                    <button 
+                        @click="recordSignalFilter = 'lean'"
+                        class="px-2.5 py-1 rounded-md text-[11px] font-bold transition"
+                        :class="recordSignalFilter === 'lean' ? 'bg-sky-600 text-white' : 'bg-slate-950 text-slate-400 border border-slate-800'"
+                    >
+                        Leans
+                    </button>
                 </div>
-                <div v-if="lastScoreSyncTime" class="text-[10px] text-slate-400 font-mono-num bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                    Last sync: {{ lastScoreSyncTime }}
-                </div>
-            </div>
 
-            <!-- Record Actions Bar: Signal Filter & Outcome Filter -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2.5">
-                <div class="flex flex-wrap items-center gap-2 text-xs">
-                    <!-- Signal Type Filter -->
-                    <div class="flex items-center gap-1">
-                        <span class="text-slate-400 font-semibold text-[11px]">Signal:</span>
-                        <button 
-                            v-for="sf in signalFilterOptions" 
-                            :key="sf.id"
-                            @click="signalFilter = sf.id"
-                            class="px-2 py-0.8 rounded-md text-[11px] font-semibold transition cursor-pointer"
-                            :class="signalFilter === sf.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
-                        >
-                            {{ sf.label }}
-                        </button>
-                    </div>
-
-                    <span class="text-slate-700 hidden sm:inline">|</span>
-
-                    <!-- Outcome Filter -->
-                    <div class="flex items-center gap-1">
-                        <span class="text-slate-400 font-semibold text-[11px]">Outcome:</span>
-                        <button 
-                            v-for="rf in recordFilterOptions" 
-                            :key="rf.id"
-                            @click="recordFilter = rf.id"
-                            class="px-2 py-0.8 rounded-md text-[11px] font-semibold transition cursor-pointer"
-                            :class="recordFilter === rf.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'"
-                        >
-                            {{ rf.label }}
-                        </button>
-                    </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400 font-semibold">Outcome:</span>
+                    <button 
+                        v-for="rf in recordFilterOptions" 
+                        :key="rf.id"
+                        @click="recordOutcomeFilter = rf.id"
+                        class="px-2 py-1 rounded-md text-[11px] font-bold transition"
+                        :class="recordOutcomeFilter === rf.id ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' : 'bg-slate-950 text-slate-400 border border-slate-800'"
+                    >
+                        {{ rf.label }}
+                    </button>
                 </div>
             </div>
 
-            <!-- Graded Games Table -->
+            <!-- Graded Ledger Table -->
             <div v-if="filteredGradedGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🏀</div>
-                <div class="text-sm font-semibold text-slate-300">No plays found for this period.</div>
+                <div class="text-sm font-semibold text-slate-300">No plays found for the selected performance window.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Plays will appear here as they tip off and conclude.
+                    Plays are automatically graded upon game completion and synchronized across devices.
                 </p>
             </div>
 
@@ -855,74 +737,65 @@
                             <tr class="bg-slate-950/90 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 <th class="py-3 px-3">Date</th>
                                 <th class="py-3 px-3">Matchup</th>
-                                <th class="py-3 px-3">Signal</th>
-                                <th class="py-3 px-3 text-center">Delta</th>
-                                <th class="py-3 px-3">Target Pick</th>
+                                <th class="py-3 px-3">Pick</th>
                                 <th class="py-3 px-3 text-center">Score</th>
                                 <th class="py-3 px-3 text-center">Outcome</th>
+                                <th class="py-3 px-3 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/70 text-xs">
                             <tr 
                                 v-for="item in filteredGradedGames" 
-                                :key="'rec-' + item.key"
+                                :key="item.key"
                                 class="hover:bg-slate-800/40 transition"
                             >
-                                <td class="py-3 px-3 font-mono-num text-[11px] text-slate-400">
-                                    {{ item.dateFormatted || item.date || '—' }}
+                                <td class="py-3 px-3 text-[11px] font-mono-num text-slate-400">
+                                    {{ item.date }}
                                 </td>
 
                                 <td class="py-3 px-3">
                                     <div class="font-bold text-slate-100 flex items-center gap-1.5 flex-wrap">
                                         <span>{{ item.road }}</span>
-                                        <span class="text-[10px] text-slate-400">{{ item.neutral == 1 ? 'vs.' : '@' }}</span>
+                                        <span class="text-slate-500">@</span>
                                         <span class="text-orange-400">{{ item.home }}</span>
+                                    </div>
+                                    <div class="text-[10px] font-bold" :class="item.signal === 'STRONG BET' ? 'text-emerald-400' : 'text-sky-400'">
+                                        {{ item.signal }} (Δ {{ formatDeltaNum(item.delta) }} pts)
                                     </div>
                                 </td>
 
-                                <td class="py-3 px-3">
-                                    <span class="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border"
+                                <td class="py-3 px-3 font-mono-num font-bold text-white">
+                                    {{ item.pick }}
+                                </td>
+
+                                <td class="py-3 px-3 text-center font-mono-num font-bold text-slate-200">
+                                    {{ item.awayScore !== null ? item.awayScore + ' - ' + item.homeScore : (item.isLive ? 'LIVE' : '—') }}
+                                </td>
+
+                                <td class="py-3 px-3 text-center font-mono-num">
+                                    <span v-if="item.grade" 
+                                          class="inline-block px-2.5 py-0.5 rounded text-xs font-black uppercase"
                                           :class="{
-                                              'bg-emerald-500/20 text-emerald-300 border-emerald-500/40': item.signal === 'STRONG BET',
-                                              'bg-sky-500/20 text-sky-300 border-sky-500/40': item.signal === 'LEAN' || item.signal.includes('LEAN'),
-                                              'bg-slate-800 text-slate-300 border-slate-700': item.signal.includes('PASS')
-                                          }">
-                                        {{ item.signal || 'STRONG BET' }}
-                                    </span>
-                                </td>
-
-                                <td class="py-3 px-3 text-center font-mono-num">
-                                    <span class="inline-block px-1.5 py-0.2 rounded text-[10px] font-bold border" :class="getDeltaBadgeClass(item.delta)">
-                                        Δ {{ formatDeltaNum(item.delta) }}
-                                    </span>
-                                </td>
-
-                                <td class="py-3 px-3">
-                                    <span class="inline-flex items-center gap-1 font-extrabold text-white bg-slate-950 px-2 py-0.8 rounded-lg border border-slate-700 font-mono-num text-[11px]">
-                                        {{ item.targetTeam }} ({{ formatBetSpread(item.liveLine, item.finalDir) }})
-                                    </span>
-                                </td>
-
-                                <td class="py-3 px-3 text-center font-mono-num font-bold" :class="item.isLive ? 'text-emerald-400' : 'text-slate-200'">
-                                    {{ item.awayScore }} - {{ item.homeScore }}
-                                    <span v-if="item.isLive" class="block text-[9px] text-slate-400 font-normal">In Progress</span>
-                                </td>
-
-                                <td class="py-3 px-3 text-center font-mono-num">
-                                    <span v-if="item.grade === 'LIVE'"
-                                          class="inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-                                        LIVE
-                                    </span>
-                                    <span v-else 
-                                        class="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase"
-                                        :class="{
-                                            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': item.grade === 'W',
-                                            'bg-rose-500/20 text-rose-300 border border-rose-500/40': item.grade === 'L',
-                                            'bg-amber-500/20 text-amber-300 border border-amber-500/40': item.grade === 'P'
-                                        }"
+                                              'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': item.grade === 'W',
+                                              'bg-rose-500/20 text-rose-300 border border-rose-500/40': item.grade === 'L',
+                                              'bg-amber-500/20 text-amber-300 border border-amber-500/40': item.grade === 'P'
+                                          }"
                                     >
                                         {{ item.grade === 'W' ? 'WIN' : (item.grade === 'L' ? 'LOSS' : 'PUSH') }}
                                     </span>
+                                    <span v-else-if="item.isLive" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold animate-pulse">
+                                        LIVE
+                                    </span>
+                                </td>
+
+                                <td class="py-3 px-3 text-center">
+                                    <button 
+                                        @click="deleteGrade(item.key)"
+                                        class="text-xs text-slate-500 hover:text-rose-400 transition cursor-pointer px-1.5 py-0.5"
+                                        title="Delete single record"
+                                    >
+                                        ✕
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
@@ -933,57 +806,31 @@
 
     </main>
 
-    <!-- Footer with Delta Threshold & Model Tier Architecture -->
+    <!-- Footer -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="font-bold text-slate-300">Delta Threshold Classification Structure:</span>
-            <span class="text-slate-400 font-mono-num">&Delta; = |Model Spread - Market Line|</span>
+            <span class="text-slate-400 font-mono-num">&Delta; = |Model Spread - Live ESPN Line|</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono-num">
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
                 <strong class="text-sky-400 block mb-0.5">0.0 to 3.5 pts &mdash; LEANS:</strong>
-                Solid analytical model lean detecting edge and pricing discrepancy against the line.
+                Solid analytical model lean detecting edge and pricing discrepancy against the live ESPN line.
             </div>
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
                 <strong class="text-emerald-400 block mb-0.5">&ge; 4.0 pts &mdash; STRONG BETS:</strong>
-                High-confidence premium edge where model consensus significantly deviates from market pricing.
+                High-confidence premium edge where model consensus significantly deviates from live ESPN market pricing. (T3 contrarian opposition downgrades Strong Bet to Lean. No Pass).
             </div>
         </div>
     </footer>
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+<script>
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
 createApp({
     setup() {
         const sheetId = '1nOy4S24eWqOpjIUbw7ZkZwPKHM-GZcHniWy26qSIwyI';
-        const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit?usp=sharing`;
-
-        const customFirebaseConfig = {
-            apiKey: "AIzaSyDf60aDwwBvbz0ipNCF4lvfpmtw13kRzoY",
-            authDomain: "nba-model-historical-tracker.firebaseapp.com",
-            projectId: "nba-model-historical-tracker",
-            storageBucket: "nba-model-historical-tracker.firebasestorage.app",
-            messagingSenderId: "391932603688",
-            appId: "1:391932603688:web:46724c2d6142e4e2d1741d",
-            measurementId: "G-E9V6C7D85P"
-        };
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : (customFirebaseConfig.projectId || 'nba-quant-edge');
-        let app = null;
-        let auth = null;
-        let db = null;
-        let unsubscribeGrades = null;
-
-        const currentUserId = ref('');
-        const cloudSyncStatus = ref('connecting');
-        const syncChannel = ref('main'); // Permanent shared master channel for all users
-
         const games = ref([]);
         const loading = ref(false);
         const isPullingScores = ref(false);
@@ -994,34 +841,27 @@ createApp({
         const activeTab = ref('matchups');
         const searchQuery = ref('');
         const quickFilter = ref('all');
-        const recordFilter = ref('all');
-        const signalFilter = ref('all');
-        const timeframeFilter = ref('season');
-        const showOnlyActionable = ref(true);
+        const activeTimeframe = ref('today');
+        const recordSignalFilter = ref('all');
+        const recordOutcomeFilter = ref('all');
         const statusMessage = ref('');
         const statusType = ref('info');
-        const dataSource = ref('sheet');
         const copyButtonText = ref('Copy Summary');
         const sheetDetectedDate = ref(null);
 
+        // Persistent shared grades
         const grades = ref({});
 
         const timeframeOptions = [
-            { id: 'season', label: 'This Season' },
             { id: 'today', label: 'Today' },
             { id: 'yesterday', label: 'Yesterday' },
             { id: 'week', label: 'This Week' },
-            { id: 'month', label: 'This Month' }
-        ];
-
-        const signalFilterOptions = [
-            { id: 'all', label: 'All Signals' },
-            { id: 'STRONG BET', label: 'Strong Bets (≥4.0)' },
-            { id: 'LEAN', label: 'Leans (0.0-3.5)' }
+            { id: 'month', label: 'This Month' },
+            { id: 'season', label: 'This Season' }
         ];
 
         const recordFilterOptions = [
-            { id: 'all', label: 'All Plays' },
+            { id: 'all', label: 'All' },
             { id: 'W', label: 'Wins' },
             { id: 'L', label: 'Losses' },
             { id: 'P', label: 'Pushes' }
@@ -1035,20 +875,18 @@ createApp({
         };
 
         const columnAliases = {
-            linedunk: ['linedunk', 'linedunkel', 'line_dunk'],
-            linedunkel: ['linedunkel', 'linedunk'],
-            linesagp: ['linesagp', 'linesag_p', 'line_sagp'],
-            linesage: ['linesage', 'linesag_e', 'linesag', 'line_sage'],
-            linesag: ['linesag', 'linesage'],
-            lineavg: ['lineavg', 'line_avg', 'line avg'],
-            linetalis: ['linetalis', 'line_talis', 'line talis'],
-            lineround: ['lineround', 'line_round', 'line round'],
-            linefox: ['linefox', 'line_fox', 'line fox'],
-            linepugh: ['linepugh', 'line_pugh'],
-            linemoore: ['linemoore', 'line_moore'],
-            lineespn: ['lineespn', 'line_espn'],
-            linemassey: ['linemassey', 'line_massey'],
-            linedok: ['linedok', 'linedoi', 'line_dok']
+            linesagp: ['linesagp', 'linesag'],
+            linemoore: ['linemoore'],
+            linedunk: ['linedunk', 'linedunkel'],
+            lineespn: ['lineespn'],
+            lineavg: ['lineavg', 'line avg', 'avg'],
+            linedok: ['linedok', 'linedoi'],
+            linemassey: ['linemassey'],
+            linesage: ['linesage', 'linesag'],
+            linetalis: ['linetalis', 'line talis', 'talis'],
+            linefox: ['linefox', 'fox'],
+            lineround: ['lineround', 'line round', 'round'],
+            linepugh: ['linepugh', 'pugh']
         };
 
         const getModelVal = (rawRow, key) => {
@@ -1062,31 +900,87 @@ createApp({
             return null;
         };
 
-        const filterOptions = computed(() => [
-            { id: 'all', label: 'All Matchups', badge: games.value.length },
-            { id: 'live', label: '🔴 Live Now', badge: liveGamesCount.value },
-            { id: 'strong', label: 'Strong Bets (≥4.0)', badge: strongBetsCount.value },
-            { id: 'lean', label: 'Leans (0.0-3.5)', badge: leansCount.value }
-        ]);
+        const filterOptions = [
+            { id: 'all', label: 'All Matchups' },
+            { id: 'live', label: '🔴 Live Now' },
+            { id: 'strong', label: 'Strong Bets (≥4.0)' },
+            { id: 'lean', label: 'Leans (0.0 - 3.5)' }
+        ];
 
-        // Timezone-safe string-based ISO date extraction
-        const getLocalIsoDate = (input) => {
-            if (!input) return '';
-            if (typeof input === 'string') {
-                const trimmed = input.trim();
-                if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                    return trimmed;
+        // Firebase Configuration
+        const customFirebaseConfig = {
+            apiKey: "AIzaSyDf60aDwwBvbz0ipNCF4lvfpmtw13kRzoY",
+            authDomain: "nba-model-historical-tracker.firebaseapp.com",
+            projectId: "nba-model-historical-tracker",
+            storageBucket: "nba-model-historical-tracker.firebasestorage.app",
+            messagingSenderId: "391932603688",
+            appId: "1:391932603688:web:46724c2d6142e4e2d1741d",
+            measurementId: "G-E9V6C7D85P"
+        };
+
+        const initFirebase = () => {
+            if (typeof firebase !== 'undefined' && customFirebaseConfig && customFirebaseConfig.apiKey) {
+                try {
+                    if (!firebase.apps || firebase.apps.length === 0) {
+                        firebase.initializeApp(customFirebaseConfig);
+                    }
+                    const db = firebase.firestore();
+                    const auth = firebase.auth();
+                    auth.signInAnonymously().catch(e => console.warn('Firebase anon auth notice:', e));
+
+                    // Listen to shared consensus document 'main'
+                    db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
+                        if (doc.exists) {
+                            const data = doc.data();
+                            if (data && data.grades) {
+                                grades.value = { ...data.grades };
+                                try {
+                                    localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
+                                } catch (e) {}
+                            }
+                        }
+                    }, err => {
+                        console.warn('Firestore snapshot error:', err);
+                    });
+                } catch (e) {
+                    console.warn('Firebase init exception:', e);
                 }
             }
-            const dt = new Date(input);
-            if (isNaN(dt.getTime())) return '';
-            const year = dt.getFullYear();
-            const month = String(dt.getMonth() + 1).padStart(2, '0');
-            const day = String(dt.getDate()).padStart(2, '0');
+        };
+
+        const saveGradesToStorage = async () => {
+            try {
+                localStorage.setItem('nba_quant_grades', JSON.stringify(grades.value));
+            } catch (e) {}
+
+            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                try {
+                    const db = firebase.firestore();
+                    await db.collection('nba_tracker_shared').doc('main').set({
+                        grades: grades.value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                } catch (e) {
+                    console.warn('Error saving to Firestore:', e);
+                }
+            }
+        };
+
+        const deleteGrade = (key) => {
+            delete grades.value[key];
+            grades.value = { ...grades.value };
+            saveGradesToStorage();
+        };
+
+        // Timezone-safe string date extraction
+        const getLocalIsoDate = (d = new Date()) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         };
 
-        const getTodayIso = () => getLocalIsoDate(new Date());
+        const getTodayIso = () => getLocalIsoDate();
 
         const getYesterdayIso = () => {
             const d = new Date();
@@ -1094,42 +988,96 @@ createApp({
             return getLocalIsoDate(d);
         };
 
-        const isDateInTimeframe = (dateVal, timeframe) => {
-            if (timeframe === 'season') return true;
-            if (!dateVal) return false;
+        const parseNum = (val) => {
+            if (val === undefined || val === null || val === '') return null;
+            const cleaned = String(val).replace(/[^0-9.-]/g, '');
+            const num = parseFloat(cleaned);
+            return Number.isFinite(num) ? num : null;
+        };
 
-            const itemIso = getLocalIsoDate(dateVal);
-            if (!itemIso) return false;
+        const formatMetric = (val) => {
+            const num = parseNum(val);
+            if (num === null) return '—';
+            return num > 0 ? `+${num.toFixed(1).replace(/\.0$/, '')}` : `${num.toFixed(1).replace(/\.0$/, '')}`;
+        };
 
-            const todayIso = getTodayIso();
-            const yestIso = getYesterdayIso();
+        const formatDeltaNum = (val) => {
+            const num = parseNum(val);
+            if (num === null) return '0.0';
+            return num.toFixed(1);
+        };
 
-            if (timeframe === 'today') return itemIso === todayIso;
-            if (timeframe === 'yesterday') return itemIso === yestIso;
+        const formatModelLabel = (key) => {
+            const clean = key.replace(/^line/, '').toUpperCase();
+            if (clean === 'SAGP') return 'SAG-P';
+            if (clean === 'SAGE') return 'SAG-E';
+            if (clean === 'DUNK') return 'DUNK';
+            if (clean === 'AVG') return 'AVG';
+            return clean;
+        };
 
-            if (timeframe === 'week') {
-                const now = new Date();
-                const startOfWeek = new Date(now);
-                const dayOfWeek = now.getDay();
-                const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-                startOfWeek.setDate(diff);
-                startOfWeek.setHours(0, 0, 0, 0);
+        const formatFavoredLabel = (game) => {
+            const lineNum = parseNum(game.liveLine !== null ? game.liveLine : game.raw.line);
+            if (lineNum === null) return 'OFF / N/A';
+            if (lineNum === 0) return 'PK';
+            if (lineNum > 0) return `${game.home} -${Math.abs(lineNum)}`;
+            return `${game.road} -${Math.abs(lineNum)}`;
+        };
 
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6);
-                endOfWeek.setHours(23, 59, 59, 999);
+        const formatBetSpread = (liveLine, dir) => {
+            const line = parseNum(liveLine);
+            if (line === null || !dir || dir === 'None') return 'N/A';
+            const spreadVal = dir === 'Home' ? -line : line;
+            return spreadVal > 0 ? `+${spreadVal.toFixed(1).replace(/\.0$/, '')}` : `${spreadVal.toFixed(1).replace(/\.0$/, '')}`;
+        };
 
-                const startIso = getLocalIsoDate(startOfWeek);
-                const endIso = getLocalIsoDate(endOfWeek);
-                return itemIso >= startIso && itemIso <= endIso;
+        const getDeltaCharacteristic = (delta, t3Downgrade) => {
+            if (t3Downgrade) {
+                return 'Tier 3 contrarian opposition downgraded Strong Bet to Lean. No Pass.';
             }
+            if (delta === null || delta === undefined) return 'No delta projection available.';
+            if (delta >= 4.0) return 'Strong Bet (≥4.0 pts): Premium edge where market pricing significantly deviates from ratings.';
+            return 'Lean (0.0 - 3.5 pts): Actionable model lean detecting pricing edge.';
+        };
 
-            if (timeframe === 'month') {
-                const currentYearMonth = todayIso.slice(0, 7);
-                return itemIso.startsWith(currentYearMonth);
+        const getDeltaBadgeClass = (delta) => {
+            if (delta === null || delta === undefined) return 'bg-slate-800 text-slate-400 border-slate-700';
+            if (delta >= 4.0) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+            return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+        };
+
+        const getResultBoxClasses = (res) => {
+            if (!res) return 'border-slate-800 bg-slate-950/60 text-slate-400';
+            if (res.finalAction === 'STRONG BET') {
+                return 'border-emerald-600/80 bg-emerald-950/30 text-emerald-200 shadow-emerald-950/20';
             }
+            return 'border-sky-600/80 bg-sky-950/30 text-sky-200';
+        };
 
-            return true;
+        const getSummaryBadgeClasses = (res) => {
+            if (!res) return 'bg-slate-800 text-slate-400 border-slate-700';
+            if (res.finalAction === 'STRONG BET') {
+                return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+            }
+            return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+        };
+
+        const getTierBadgeClass = (status) => {
+            if (status === 'BET') return 'text-emerald-400 font-extrabold';
+            if (status === 'LEAN') return 'text-sky-400 font-extrabold';
+            return 'text-slate-500';
+        };
+
+        const getModelCellClass = (valStr, liveLine) => {
+            const val = parseNum(valStr);
+            const line = parseNum(liveLine);
+            if (val === null || line === null) return 'border-slate-800 text-slate-500 bg-slate-950/50';
+            if (val > line) {
+                return 'border-emerald-900/60 bg-emerald-950/20 text-emerald-300';
+            } else if (val < line) {
+                return 'border-sky-900/60 bg-sky-950/20 text-sky-300';
+            }
+            return 'border-slate-800 text-slate-400 bg-slate-950/50';
         };
 
         const normalCDF = (z) => {
@@ -1146,40 +1094,25 @@ createApp({
             return !!(st && st.isLive && !st.isPre && !st.isCompleted);
         };
 
-        const isGamePre = (game) => {
-            const st = liveGameStatusMap.value[getGameKey(game)];
-            if (!st) return true;
-            return !!(st.isPre || (!st.isLive && !st.isCompleted));
-        };
-
         const calculateLiveCoverProb = (game) => {
-            if (!game.result || game.result.finalAction.includes('PASS') || game.result.finalAction === 'OFF') {
-                return null;
-            }
+            if (!game.result || game.result.finalAction === 'OFF') return null;
             const line = game.liveLine;
             if (line === null) return null;
 
             const liveStatus = getGameLiveStatus(game);
             const grade = getGameGrade(game);
 
-            if (!liveStatus || liveStatus.isPre || (!liveStatus.isLive && !liveStatus.isCompleted)) {
-                return null;
-            }
-
-            if (grade && grade.grade && grade.grade !== 'LIVE') {
+            if (grade && grade.grade) {
                 if (grade.grade === 'W') return { pct: 100, label: '100%', status: 'FINAL_WIN', coverDiff: 0 };
                 if (grade.grade === 'L') return { pct: 0, label: '0%', status: 'FINAL_LOSS', coverDiff: 0 };
                 if (grade.grade === 'P') return { pct: 50, label: 'Push', status: 'FINAL_PUSH', coverDiff: 0 };
             }
 
-            if (liveStatus.awayScore === null || liveStatus.homeScore === null) {
+            if (!liveStatus || liveStatus.isPre || liveStatus.awayScore === null || liveStatus.homeScore === null) {
                 return null;
             }
 
-            const awayScore = liveStatus.awayScore;
-            const homeScore = liveStatus.homeScore;
-            const currentMargin = homeScore - awayScore;
-
+            const currentMargin = liveStatus.homeScore - liveStatus.awayScore;
             if (liveStatus.isCompleted) {
                 let win = false, push = false;
                 if (game.result.finalDir === 'Home') {
@@ -1222,20 +1155,16 @@ createApp({
 
             const fElapsed = Math.max(0.01, Math.min(0.999, (2880 - totalSecRem) / 2880));
             const fRem = Math.max(0.001, totalSecRem / 2880);
-
             const expectedElapsedMargin = fElapsed * line;
             const sigmaRem = Math.max(1.5, 11.5 * Math.sqrt(fRem));
 
             let coverDiff = 0;
-            let z = 0;
             if (game.result.finalDir === 'Home') {
                 coverDiff = currentMargin - expectedElapsedMargin;
-                z = coverDiff / sigmaRem;
             } else {
                 coverDiff = -(currentMargin - expectedElapsedMargin);
-                z = coverDiff / sigmaRem;
             }
-
+            const z = coverDiff / sigmaRem;
             let prob = normalCDF(z) * 100;
             prob = Math.max(0.5, Math.min(99.5, prob));
 
@@ -1256,131 +1185,16 @@ createApp({
         };
 
         const getWinProbBarColor = (pct) => {
-            if (pct >= 65) return 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-md shadow-emerald-500/30';
-            if (pct >= 45) return 'bg-gradient-to-r from-amber-600 to-amber-400 shadow-md shadow-amber-500/30';
-            return 'bg-gradient-to-r from-rose-600 to-rose-400 shadow-md shadow-rose-500/30';
+            if (pct >= 65) return 'bg-gradient-to-r from-emerald-600 to-emerald-400';
+            if (pct >= 45) return 'bg-gradient-to-r from-amber-600 to-amber-400';
+            return 'bg-gradient-to-r from-rose-600 to-rose-400';
         };
 
-        const parseNum = (val) => {
-            if (val === undefined || val === null || val === '') return null;
-            const cleaned = String(val).replace(/[^0-9.-]/g, '');
-            const num = parseFloat(cleaned);
-            return Number.isFinite(num) ? num : null;
-        };
-
-        const parseTimeStringToTimestamp = (str) => {
-            if (!str) return null;
-            const cleaned = str.trim().toLowerCase();
-            const match = cleaned.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/);
-            if (!match) return null;
-            let hours = parseInt(match[1], 10);
-            const minutes = parseInt(match[2], 10);
-            const meridiem = match[3];
-
-            if (meridiem === 'pm' && hours < 12) hours += 12;
-            if (meridiem === 'am' && hours === 12) hours = 0;
-            if (!meridiem && hours >= 1 && hours <= 11) hours += 12;
-
-            const d = new Date();
-            d.setHours(hours, minutes, 0, 0);
-            return d.getTime();
-        };
-
-        const getGameTimestamp = (game) => {
-            if (!game) return 9999999999999;
-            if (game.timestamp && typeof game.timestamp === 'number') {
-                return game.timestamp;
-            }
-            const liveStatus = liveGameStatusMap.value[getGameKey(game)];
-            if (liveStatus && liveStatus.timestamp && typeof liveStatus.timestamp === 'number') {
-                return liveStatus.timestamp;
-            }
-            const rawTime = game.raw?.time || game.raw?.gametime || game.raw?.game_time || game.raw?.tipoff || game.raw?.tip;
-            if (rawTime) {
-                const parsed = parseTimeStringToTimestamp(String(rawTime));
-                if (parsed) return parsed;
-            }
-            return 9000000000000 + (game.id || 0);
-        };
-
-        const getGameDisplayTime = (game) => {
-            const st = getGameLiveStatus(game);
-            if (st && st.startTime) return st.startTime;
-            if (game.startTime) return game.startTime;
-            const rawTime = game.raw?.time || game.raw?.gametime || game.raw?.game_time || game.raw?.tipoff;
-            if (rawTime) return String(rawTime).trim();
-            return null;
-        };
-
-        const sortGamesByTime = (gameList) => {
-            return [...gameList].sort((a, b) => {
-                const timeA = getGameTimestamp(a);
-                const timeB = getGameTimestamp(b);
-                if (timeA !== timeB) {
-                    return timeA - timeB;
-                }
-                return (a.id || 0) - (b.id || 0);
-            });
-        };
-
-        const formatMetric = (val) => {
-            const num = parseNum(val);
-            if (num === null) return '—';
-            return num > 0 ? `+${num.toFixed(1).replace(/\.0$/, '')}` : `${num.toFixed(1).replace(/\.0$/, '')}`;
-        };
-
-        const formatDeltaNum = (val) => {
-            const num = parseNum(val);
-            if (num === null) return '0.0';
-            return num.toFixed(1);
-        };
-
-        const formatModelLabel = (key) => {
-            const clean = key.replace(/^line_?/, '').toUpperCase();
-            if (clean === 'SAGP') return 'SAG-P';
-            if (clean === 'SAGE') return 'SAG-E';
-            if (clean === 'SAGGM') return 'SAG-GM';
-            if (clean === 'CA') return 'CAL';
-            if (clean === 'DOK') return 'DOK';
-            if (clean === 'AVG') return 'AVG';
-            if (clean === 'DUNK') return 'DUNK';
-            if (clean === 'ROUND') return 'ROUND';
-            return clean;
-        };
-
-        const formatFavoredLabel = (game) => {
-            const lineNum = parseNum(game.raw.line);
-            if (lineNum === null) return 'OFF / N/A';
-            if (lineNum === 0) return 'PK';
-            if (lineNum > 0) return `${game.home} -${Math.abs(lineNum)}`;
-            return `${game.road} -${Math.abs(lineNum)}`;
-        };
-
-        const formatBetSpread = (liveLine, dir) => {
-            const line = parseNum(liveLine);
-            if (line === null || !dir || dir === 'None') return 'N/A';
-            const spreadVal = dir === 'Home' ? -line : line;
-            return spreadVal > 0 ? `+${spreadVal.toFixed(1).replace(/\.0$/, '')}` : `${spreadVal.toFixed(1).replace(/\.0$/, '')}`;
-        };
-
-        const getDeltaCharacteristic = (delta, finalAction) => {
-            if (finalAction && finalAction.includes('T3 Downgrade')) {
-                return 'Opposite unanimity from Tier 3 models triggered downgrade.';
-            }
-            if (delta === null || delta === undefined) return 'No delta projection available.';
-            if (delta >= 4.0) return 'Strong Bet (≥4.0 pts): Premium edge where market pricing significantly deviates from ratings.';
-            return 'Lean (0.0 - 3.5 pts): Actionable model lean detecting pricing edge.';
-        };
-
-        const getDeltaBadgeClass = (delta) => {
-            if (delta === null || delta === undefined) return 'bg-slate-950 text-slate-500 border-slate-800';
-            if (delta >= 4.0) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-black';
-            return 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-bold';
-        };
-
-        // --- Analytical Delta Threshold Classification Engine (Strong Bet >= 4.0 | Lean 0.0 - 3.5 pts) ---
+        // --- Analytical Delta Threshold Classification Engine ---
         const analyzeGame = (game) => {
-            const liveLine = parseNum(game.raw.line);
+            const liveLine = (game.espnLine !== undefined && game.espnLine !== null)
+                ? game.espnLine
+                : parseNum(game.raw.line);
             game.liveLine = liveLine;
 
             if (liveLine === null) {
@@ -1416,7 +1230,7 @@ createApp({
                     }
                 });
 
-                if (total === 0) return { total: 0, agreeCount: 0, edge: 0, dir: 'None', status: 'PASS' };
+                if (total === 0) return { total: 0, agreeCount: 0, edge: 0, dir: 'None', status: 'NEUTRAL' };
 
                 const homePct = homeCount / total;
                 const awayPct = awayCount / total;
@@ -1431,7 +1245,7 @@ createApp({
                     return { total, agreeCount: awayCount, edge: avgEdge, dir: 'Away', status };
                 }
 
-                return { total, agreeCount: Math.max(homeCount, awayCount), edge: 0, dir: 'Split', status: 'PASS' };
+                return { total, agreeCount: Math.max(homeCount, awayCount), edge: 0, dir: 'Split', status: 'SPLIT' };
             };
 
             const t1 = evaluateTier(modelTiers.t1, 1.0);
@@ -1450,31 +1264,29 @@ createApp({
                 finalDir = t2.dir;
                 primaryDelta = t2.edge;
             } else {
-                primaryDelta = Math.max(t1.edge, t2.edge);
+                const avgVal = parseNum(getModelVal(game.raw, 'lineavg'));
+                if (avgVal !== null) {
+                    finalDir = avgVal >= liveLine ? 'Home' : 'Away';
+                    primaryDelta = Math.abs(avgVal - liveLine);
+                } else {
+                    finalDir = 'Home';
+                    primaryDelta = 1.0;
+                }
             }
 
-            if (t1.dir !== 'None' && t1.dir !== 'Split' && t2.dir !== 'None' && t2.dir !== 'Split' && t1.dir !== t2.dir) {
-                finalAction = 'PASS (Split Tiers)';
-                finalDir = 'None';
+            if (primaryDelta >= 4.0) {
+                finalAction = 'STRONG BET';
             } else {
-                if (primaryDelta >= 4.0) {
-                    finalAction = 'STRONG BET';
-                } else {
-                    finalAction = 'LEAN';
-                }
+                finalAction = 'LEAN';
             }
 
-            if (finalDir !== 'None' && t3.status !== 'PASS' && t3.dir !== 'None' && t3.dir !== finalDir) {
+            // T3 Contrarian Check: Strong Bet downgrades to Lean; Lean remains Lean
+            if (finalDir !== 'None' && t3.dir !== 'None' && t3.dir !== 'Split' && t3.dir !== finalDir) {
                 t3Downgrade = true;
-                if (finalAction === 'STRONG BET') {
-                    finalAction = 'LEAN (T3 Downgrade)';
-                } else {
-                    finalAction = 'PASS (T3 Downgrade)';
-                    finalDir = 'None';
-                }
+                finalAction = 'LEAN';
             }
 
-            const targetTeam = finalDir === 'Home' ? game.home : (finalDir === 'Away' ? game.road : 'None');
+            const targetTeam = finalDir === 'Home' ? game.home : (finalDir === 'Away' ? game.road : game.home);
 
             game.result = {
                 t1,
@@ -1489,9 +1301,7 @@ createApp({
         };
 
         const processRawRows = (rows, sourceLabel = 'NBA Spreads Google Sheet') => {
-            if (!rows || rows.length === 0) {
-                throw new Error("Dataset is empty.");
-            }
+            if (!rows || rows.length === 0) throw new Error("Dataset is empty.");
 
             sheetDetectedDate.value = null;
             for (let i = 0; i < Math.min(6, rows.length); i++) {
@@ -1525,9 +1335,7 @@ createApp({
                     if (rowVals.length === 0 || rowVals.every(v => v === null || v === '')) continue;
                     let obj = {};
                     keys.forEach((k, colIdx) => {
-                        if (k) {
-                            obj[String(k).trim()] = rowVals[colIdx];
-                        }
+                        if (k) obj[String(k).trim()] = rowVals[colIdx];
                     });
                     if (obj.home && obj.home !== 'home' && obj.home !== 'Home') {
                         dataRows.push(obj);
@@ -1542,10 +1350,6 @@ createApp({
                 const road = r.road || r.Road || r.visitor || r.Visitor || r.away || r.Away || 'Away';
                 const neutral = parseNum(r.neutral) !== null ? parseNum(r.neutral) : 0;
                 
-                const rawTime = r.time || r.gametime || r.game_time || r.tipoff || r.tip;
-                const parsedTs = rawTime ? parseTimeStringToTimestamp(String(rawTime)) : null;
-                const formattedTime = rawTime ? String(rawTime).trim() : null;
-
                 const gameObj = {
                     id: idx,
                     home,
@@ -1553,18 +1357,19 @@ createApp({
                     neutral,
                     raw: r,
                     liveLine: null,
+                    espnLine: null,
+                    lineSource: 'Sheet',
+                    tipOffTimeMs: 0,
+                    tipOffFormatted: null,
                     showModels: false,
-                    result: null,
-                    startTime: formattedTime,
-                    timestamp: parsedTs
+                    result: null
                 };
                 analyzeGame(gameObj);
                 return gameObj;
             });
 
-            dataSource.value = 'sheet';
             statusType.value = 'success';
-            statusMessage.value = `Successfully loaded ${games.value.length} NBA matchups from ${sourceLabel}.`;
+            statusMessage.value = `Loaded ${games.value.length} NBA matchups from ${sourceLabel}.`;
             loading.value = false;
 
             fetchLiveScores();
@@ -1603,7 +1408,7 @@ createApp({
             if (!csvText) {
                 loading.value = false;
                 statusType.value = 'error';
-                statusMessage.value = 'Unable to download Google Sheet. Check network permissions and click "Sync".';
+                statusMessage.value = 'Unable to download Google Sheet. Check network connection.';
                 return;
             }
 
@@ -1616,17 +1421,18 @@ createApp({
                     } else {
                         loading.value = false;
                         statusType.value = 'error';
-                        statusMessage.value = 'Parsed Google Sheet CSV returned empty rows.';
+                        statusMessage.value = 'Parsed CSV was empty.';
                     }
                 },
                 error: (err) => {
                     loading.value = false;
                     statusType.value = 'error';
-                    statusMessage.value = 'CSV parse error: ' + (err.message || 'Unknown error');
+                    statusMessage.value = 'CSV parse error: ' + (err.message || 'Error');
                 }
             });
         };
 
+        // NBA Franchise Canonical Matching
         const NBA_CANONICAL = {
             'atlanta': 'hawks', 'atlanta hawks': 'hawks', 'hawks': 'hawks', 'atl': 'hawks',
             'boston': 'celtics', 'boston celtics': 'celtics', 'celtics': 'celtics', 'bos': 'celtics',
@@ -1646,38 +1452,30 @@ createApp({
             'miami': 'heat', 'miami heat': 'heat', 'heat': 'heat', 'mia': 'heat',
             'milwaukee': 'bucks', 'milwaukee bucks': 'bucks', 'bucks': 'bucks', 'mil': 'bucks',
             'minnesota': 'timberwolves', 'minnesota timberwolves': 'timberwolves', 'timberwolves': 'timberwolves', 'wolves': 'timberwolves', 'min': 'timberwolves',
-            'new orleans': 'pelicans', 'new orleans pelicans': 'pelicans', 'pelicans': 'pelicans', 'pels': 'pelicans', 'nop': 'pelicans', 'no': 'pelicans',
+            'new orleans': 'pelicans', 'new orleans pelicans': 'pelicans', 'pelicans': 'pelicans', 'pels': 'pelicans', 'nop': 'pelicans',
             'new york': 'knicks', 'new york knicks': 'knicks', 'knicks': 'knicks', 'nyk': 'knicks', 'ny': 'knicks',
             'oklahoma city': 'thunder', 'oklahoma city thunder': 'thunder', 'thunder': 'thunder', 'okc': 'thunder',
             'orlando': 'magic', 'orlando magic': 'magic', 'magic': 'magic', 'orl': 'magic',
-            'philadelphia': '76ers', 'philadelphia 76ers': '76ers', '76ers': '76ers', 'sixers': '76ers', 'philly': '76ers', 'phi': '76ers',
+            'philadelphia': '76ers', 'philadelphia 76ers': '76ers', '76ers': '76ers', 'sixers': '76ers', 'phi': '76ers',
             'phoenix': 'suns', 'phoenix suns': 'suns', 'suns': 'suns', 'phx': 'suns',
             'portland': 'trail blazers', 'portland trail blazers': 'trail blazers', 'trail blazers': 'trail blazers', 'blazers': 'trail blazers', 'por': 'trail blazers',
             'sacramento': 'kings', 'sacramento kings': 'kings', 'kings': 'kings', 'sac': 'kings',
-            'san antonio': 'spurs', 'san antonio spurs': 'spurs', 'spurs': 'spurs', 'sas': 'spurs', 'sa': 'spurs',
+            'san antonio': 'spurs', 'san antonio spurs': 'spurs', 'spurs': 'spurs', 'sas': 'spurs',
             'toronto': 'raptors', 'toronto raptors': 'raptors', 'raptors': 'raptors', 'tor': 'raptors',
             'utah': 'jazz', 'utah jazz': 'jazz', 'jazz': 'jazz', 'uta': 'jazz',
-            'washington': 'wizards', 'washington wizards': 'wizards', 'wizards': 'wizards', 'was': 'wizards', 'wsh': 'wizards'
-        };
-
-        const cleanRawName = (name) => {
-            if (!name) return '';
-            let s = String(name).toLowerCase().trim();
-            s = s.replace(/&/g, ' and ').replace(/['’]/g, '').replace(/[-().,]/g, ' ');
-            return s.replace(/\s+/g, ' ').trim();
+            'washington': 'wizards', 'washington wizards': 'wizards', 'wizards': 'wizards', 'was': 'wizards'
         };
 
         const canonicalizeNbaTeam = (name) => {
-            const cleaned = cleanRawName(name);
-            if (!cleaned) return '';
-            if (NBA_CANONICAL[cleaned]) return NBA_CANONICAL[cleaned];
-            return cleaned;
+            if (!name) return '';
+            let s = String(name).toLowerCase().trim().replace(/&/g, ' and ').replace(/['’]/g, '').replace(/[-().,]/g, ' ');
+            s = s.replace(/\s+/g, ' ').trim();
+            return NBA_CANONICAL[s] || s;
         };
 
         const teamMatches = (sheetTeam, espnCompetitor) => {
             if (!sheetTeam || !espnCompetitor || !espnCompetitor.team) return false;
             const sCanon = canonicalizeNbaTeam(sheetTeam);
-
             const teamObj = espnCompetitor.team;
             const espnRawList = [
                 teamObj.displayName,
@@ -1688,19 +1486,15 @@ createApp({
             ].filter(Boolean);
 
             const espnCanons = espnRawList.map(n => canonicalizeNbaTeam(n)).filter(Boolean);
-
             if (espnCanons.some(ec => ec === sCanon)) return true;
 
-            if (sCanon === 'clippers') {
-                return espnCanons.includes('clippers') || espnRawList.some(r => /clippers|lac/i.test(r));
-            }
-            if (sCanon === 'lakers') {
-                return espnCanons.includes('lakers') || espnRawList.some(r => /lakers|lal/i.test(r));
-            }
+            if (sCanon === 'clippers') return espnCanons.includes('clippers') || espnRawList.some(r => /clippers|lac/i.test(r));
+            if (sCanon === 'lakers') return espnCanons.includes('lakers') || espnRawList.some(r => /lakers|lal/i.test(r));
 
             return false;
         };
 
+        // Live ESPN Score & Odds Fetcher
         const fetchLiveScores = async () => {
             if (!games.value || games.value.length === 0) return;
             isPullingScores.value = true;
@@ -1714,7 +1508,6 @@ createApp({
 
             const now = new Date();
             const datesToQuery = new Set();
-
             datesToQuery.add('live_now');
             datesToQuery.add(formatYMD(now));
 
@@ -1727,6 +1520,8 @@ createApp({
             const tomorrow = new Date(now);
             tomorrow.setDate(tomorrow.getDate() + 1);
             datesToQuery.add(formatYMD(tomorrow));
+
+            if (sheetDetectedDate.value) datesToQuery.add(sheetDetectedDate.value);
 
             let requestUrls = [];
             datesToQuery.forEach(dStr => {
@@ -1742,9 +1537,7 @@ createApp({
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
                 try {
                     let res = await fetch(url).catch(() => null);
-                    if (!res || !res.ok) {
-                        res = await fetch(proxyUrl).catch(() => null);
-                    }
+                    if (!res || !res.ok) res = await fetch(proxyUrl).catch(() => null);
                     if (res && res.ok) {
                         const json = await res.json();
                         if (json && json.events && Array.isArray(json.events)) {
@@ -1764,22 +1557,17 @@ createApp({
                             });
                         }
                     }
-                } catch (e) {
-                    console.warn(`ESPN fetch error for ${url}:`, e);
-                }
+                } catch (e) {}
             }
 
             const allEvents = Array.from(eventsMap.values());
             if (allEvents.length === 0) {
                 isPullingScores.value = false;
-                statusType.value = 'warning';
-                statusMessage.value = 'Could not retrieve live games from ESPN NBA scoreboard API.';
                 return;
             }
 
-            let autoGradedCount = 0;
             let liveInProgressCount = 0;
-            let scheduledCount = 0;
+            let autoGradedCount = 0;
 
             const parseCompScore = (comp) => {
                 if (!comp || comp.score === undefined || comp.score === null || comp.score === '') return null;
@@ -1788,7 +1576,9 @@ createApp({
             };
 
             games.value.forEach(g => {
-                const candidateMatches = [];
+                let matchedHomeComp = null;
+                let matchedRoadComp = null;
+                let matchedEvent = null;
 
                 for (const ev of allEvents) {
                     const comps = ev.competitions?.[0]?.competitors;
@@ -1796,180 +1586,130 @@ createApp({
                     const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
                     const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
 
-                    let isMatch = false;
-                    let matchedHome = null;
-                    let matchedAway = null;
-
                     if (teamMatches(g.home, homeComp) && teamMatches(g.road, awayComp)) {
-                        isMatch = true;
-                        matchedHome = homeComp;
-                        matchedAway = awayComp;
-                    } else if (teamMatches(g.home, awayComp) && teamMatches(g.road, homeComp)) {
-                        isMatch = true;
-                        matchedHome = awayComp;
-                        matchedAway = homeComp;
+                        matchedHomeComp = homeComp;
+                        matchedRoadComp = awayComp;
+                        matchedEvent = ev;
+                        break;
                     }
-
-                    if (isMatch) {
-                        candidateMatches.push({ ev, homeComp: matchedHome, awayComp: matchedAway });
+                    if (teamMatches(g.home, awayComp) && teamMatches(g.road, homeComp)) {
+                        matchedHomeComp = awayComp;
+                        matchedRoadComp = homeComp;
+                        matchedEvent = ev;
+                        break;
                     }
                 }
 
-                if (candidateMatches.length === 0) return;
+                if (matchedEvent && matchedHomeComp && matchedRoadComp) {
+                    // Extract Tip-off Time
+                    if (matchedEvent.date) {
+                        const dObj = new Date(matchedEvent.date);
+                        g.tipOffTimeMs = dObj.getTime();
+                        g.tipOffFormatted = dObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    }
 
-                let selected = candidateMatches[0];
-                if (candidateMatches.length > 1) {
-                    const todayStr = formatYMD(now);
-                    selected = candidateMatches.sort((a, b) => {
-                        const stateA = a.ev.status?.type?.state;
-                        const stateB = b.ev.status?.type?.state;
-                        if (stateA === 'in' && stateB !== 'in') return -1;
-                        if (stateB === 'in' && stateA !== 'in') return 1;
-
-                        const dateA = a.ev.date ? formatYMD(new Date(a.ev.date)) : '';
-                        const dateB = b.ev.date ? formatYMD(new Date(b.ev.date)) : '';
-                        const targetDate = todayStr;
-
-                        if (dateA === targetDate && dateB !== targetDate) return -1;
-                        if (dateB === targetDate && dateA !== targetDate) return 1;
-
-                        const diffA = Math.abs(new Date(a.ev.date || 0) - now);
-                        const diffB = Math.abs(new Date(b.ev.date || 0) - now);
-                        return diffA - diffB;
-                    })[0];
-                }
-
-                const matchedEvent = selected.ev;
-                const matchedHomeComp = selected.homeComp;
-                const matchedRoadComp = selected.awayComp;
-
-                const statusTypeObj = matchedEvent.status?.type || matchedEvent.competitions?.[0]?.status?.type || {};
-                const rawState = String(statusTypeObj.state || matchedEvent.status?.state || '').toLowerCase().trim();
-                const statusName = String(statusTypeObj.name || '').toUpperCase().trim();
-                const statusDetail = String(statusTypeObj.detail || statusTypeObj.description || '').trim();
-                const statusDetailLower = statusDetail.toLowerCase();
-                const completedFlag = statusTypeObj.completed === true || matchedEvent.status?.completed === true;
-                const period = Number(matchedEvent.status?.period) || 0;
-
-                const isPre = rawState === 'pre' || 
-                              statusName.includes('SCHEDULED') || 
-                              statusName.includes('PRE') ||
-                              statusName.includes('POSTPONED') || 
-                              statusName.includes('CANCELED') || 
-                              statusName.includes('DELAYED');
-
-                const isCompleted = !isPre && (
-                    completedFlag || 
-                    rawState === 'post' || 
-                    statusName.includes('FINAL') || 
-                    statusDetailLower.startsWith('final') ||
-                    statusDetailLower === 'final'
-                );
-
-                const isLive = !isPre && !isCompleted && (
-                    rawState === 'in' || 
-                    statusName.includes('IN_PROGRESS') ||
-                    statusName.includes('HALFTIME') ||
-                    (period >= 1 && (
-                        statusDetailLower.includes('half') ||
-                        statusDetailLower.includes('quarter') ||
-                        statusDetailLower.includes('qtr') ||
-                        /\b[1-4](st|nd|rd|th)\s+(qtr|quarter)\b/i.test(statusDetailLower) ||
-                        /\b(ot|[1-4]ot)\b/i.test(statusDetailLower)
-                    ))
-                );
-
-                const clock = matchedEvent.status?.clock;
-                const displayClock = matchedEvent.status?.displayClock || '';
-                
-                let startTime = null;
-                let eventDateObj = null;
-                let gameTimestamp = null;
-                if (matchedEvent.date) {
-                    try {
-                        eventDateObj = new Date(matchedEvent.date);
-                        if (!isNaN(eventDateObj.getTime())) {
-                            gameTimestamp = eventDateObj.getTime();
-                            startTime = eventDateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    // Extract Live ESPN Point Spread
+                    const comps = matchedEvent.competitions?.[0];
+                    const odds = comps?.odds?.[0];
+                    if (odds) {
+                        let parsedSpread = null;
+                        if (typeof odds.spread === 'number' && !isNaN(odds.spread)) {
+                            parsedSpread = -odds.spread;
+                        } else if (odds.details) {
+                            const details = String(odds.details).trim();
+                            if (details.toUpperCase() === 'EVEN' || details.toUpperCase() === 'PK') {
+                                parsedSpread = 0;
+                            } else {
+                                const m = details.match(/([A-Za-z\s]+)\s+([+-]?\d+(?:\.\d+)?)/);
+                                if (m) {
+                                    const teamStr = m[1].trim();
+                                    const numVal = parseFloat(m[2]);
+                                    if (teamMatches(g.home, { team: { displayName: teamStr, abbreviation: teamStr } })) {
+                                        parsedSpread = -numVal;
+                                    } else {
+                                        parsedSpread = numVal;
+                                    }
+                                }
+                            }
                         }
-                    } catch (e) {
-                        startTime = null;
-                        gameTimestamp = null;
+                        if (parsedSpread !== null && !isNaN(parsedSpread)) {
+                            g.espnLine = parsedSpread;
+                            g.lineSource = 'ESPN';
+                            analyzeGame(g);
+                        }
                     }
-                }
 
-                const rawAwayScore = parseCompScore(matchedRoadComp);
-                const rawHomeScore = parseCompScore(matchedHomeComp);
+                    const statusType = matchedEvent.status?.type || comps?.status?.type || {};
+                    const state = String(statusType.state || matchedEvent.status?.state || '').toLowerCase();
+                    const statusName = String(statusType.name || '').toUpperCase();
+                    const statusDetail = String(statusType.detail || statusType.description || '');
+                    const statusDetailLower = statusDetail.toLowerCase();
+                    const period = matchedEvent.status?.period || 0;
 
-                const awayScore = (isLive || isCompleted) ? rawAwayScore : null;
-                const homeScore = (isLive || isCompleted) ? rawHomeScore : null;
+                    const isPre = state === 'pre' || 
+                                  statusName.includes('SCHEDULED') || 
+                                  statusDetailLower.includes('scheduled') || 
+                                  (period === 0 && !statusName.includes('FINAL'));
 
-                const key = getGameKey(g);
+                    const isCompleted = !isPre && (
+                        statusType.completed === true || 
+                        matchedEvent.status?.completed === true || 
+                        state === 'post' || 
+                        statusName.includes('FINAL') || 
+                        statusDetailLower.startsWith('final') || 
+                        statusDetailLower === 'final'
+                    );
 
-                if (startTime) {
-                    g.startTime = startTime;
-                }
-                if (gameTimestamp) {
-                    g.timestamp = gameTimestamp;
-                }
+                    const isLive = !isPre && !isCompleted && (
+                        state === 'in' || 
+                        statusName.includes('IN_PROGRESS') || 
+                        statusName.includes('HALFTIME') || 
+                        period > 0
+                    );
 
-                liveGameStatusMap.value[key] = {
-                    awayScore,
-                    homeScore,
-                    detail: isCompleted ? 'Final' : (isLive ? (statusDetail || 'In Progress') : (startTime ? `Tip-off: ${startTime}` : (statusDetail || 'Scheduled'))),
-                    displayClock: isCompleted ? '0:00' : (isLive ? displayClock : ''),
-                    clock: isCompleted ? 0 : (isLive ? clock : null),
-                    period: (isLive || isCompleted) ? period : 0,
-                    startTime,
-                    timestamp: gameTimestamp,
-                    isLive,
-                    isCompleted,
-                    isPre
-                };
+                    const clock = matchedEvent.status?.clock;
+                    const displayClock = matchedEvent.status?.displayClock || '';
+                    const startTime = matchedEvent.date ? new Date(matchedEvent.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null;
+                    const awayScore = parseCompScore(matchedRoadComp);
+                    const homeScore = parseCompScore(matchedHomeComp);
 
-                if (isLive) {
-                    liveInProgressCount++;
-                } else if (isPre) {
-                    scheduledCount++;
-                }
+                    const key = getGameKey(g);
+                    liveGameStatusMap.value[key] = {
+                        awayScore: isPre ? null : awayScore,
+                        homeScore: isPre ? null : homeScore,
+                        detail: isCompleted ? 'Final' : (statusDetail || (isLive ? 'In Progress' : 'Scheduled')),
+                        displayClock: isCompleted ? '0:00' : displayClock,
+                        clock: isCompleted ? 0 : clock,
+                        period,
+                        startTime,
+                        isPre,
+                        isLive,
+                        isCompleted
+                    };
 
-                // Auto-grade completed final games
-                if (isCompleted && awayScore !== null && homeScore !== null && g.result) {
-                    const action = g.result.finalAction;
-                    const isActionable = action === 'STRONG BET' || action === 'LEAN' || action.includes('LEAN');
+                    if (isLive) liveInProgressCount++;
 
-                    if (isActionable && g.result.finalDir !== 'None') {
+                    // Auto-grade completed games
+                    if (isCompleted && awayScore !== null && homeScore !== null) {
                         const current = grades.value[key] || { grade: null, awayScore: null, homeScore: null };
-                        current.key = key;
                         current.awayScore = awayScore;
                         current.homeScore = homeScore;
-                        current.auto = true;
-                        current.signal = action;
-                        current.targetTeam = g.result.targetTeam;
-                        current.finalDir = g.result.finalDir;
-                        current.liveLine = g.liveLine;
+                        current.signal = g.result.finalAction;
                         current.delta = g.result.delta;
-                        current.road = g.road;
+                        current.pick = `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`;
                         current.home = g.home;
-                        current.neutral = g.neutral;
-
-                        const dateSource = eventDateObj || new Date();
-                        current.date = getLocalIsoDate(dateSource);
-                        current.dateFormatted = dateSource.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                        current.timestamp = dateSource.getTime();
-
+                        current.road = g.road;
+                        current.date = current.date || getLocalIsoDate();
                         computeScoreGrade(g, current);
                         grades.value[key] = { ...current };
-                        saveGradeToCloud(key, current);
                         autoGradedCount++;
                     }
                 }
             });
 
+            saveGradesToStorage();
             isPullingScores.value = false;
             lastScoreSyncTime.value = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            statusType.value = 'success';
-            statusMessage.value = `ESPN NBA Sync: ${liveInProgressCount} active live, ${scheduledCount} upcoming scheduled, ${autoGradedCount} plays recorded.`;
         };
 
         const liveGamesCount = computed(() => {
@@ -1977,17 +1717,48 @@ createApp({
             return Object.values(liveGameStatusMap.value).filter(s => s && s.isLive && !s.isPre && !s.isCompleted).length;
         });
 
-        const startAutoRefresh = () => {
-            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-            autoRefreshTimer = setInterval(() => {
-                if (autoRefresh.value) {
-                    fetchLiveScores();
-                }
-            }, 30000);
+        const getGameKey = (game) => `${game.road}__${game.home}`;
+
+        const getGameGrade = (game) => grades.value[getGameKey(game)] || { grade: null, awayScore: null, homeScore: null };
+
+        const getGameLiveStatus = (game) => liveGameStatusMap.value[getGameKey(game)] || null;
+
+        const getDisplayScore = (game) => {
+            const live = getGameLiveStatus(game);
+            const grade = getGameGrade(game);
+            let away = '—';
+            if (live && live.awayScore !== null && live.awayScore !== undefined) away = live.awayScore;
+            else if (grade && grade.awayScore !== null && grade.awayScore !== undefined) away = grade.awayScore;
+
+            let home = '—';
+            if (live && live.homeScore !== null && live.homeScore !== undefined) home = live.homeScore;
+            else if (grade && grade.homeScore !== null && grade.homeScore !== undefined) home = grade.homeScore;
+
+            return { away, home };
         };
 
-        const getGameLiveStatus = (game) => {
-            return liveGameStatusMap.value[getGameKey(game)] || null;
+        const computeScoreGrade = (game, entry) => {
+            if (entry.awayScore === null || entry.homeScore === null || game.liveLine === null) return;
+            const actualHomeMargin = entry.homeScore - entry.awayScore;
+            const line = game.liveLine;
+
+            if (game.result.finalDir === 'Home') {
+                if (actualHomeMargin > line) entry.grade = 'W';
+                else if (actualHomeMargin < line) entry.grade = 'L';
+                else entry.grade = 'P';
+            } else if (game.result.finalDir === 'Away') {
+                if (actualHomeMargin < line) entry.grade = 'W';
+                else if (actualHomeMargin > line) entry.grade = 'L';
+                else entry.grade = 'P';
+            }
+        };
+
+        const sortGamesByTime = (list) => {
+            return [...list].sort((a, b) => {
+                const aTime = a.tipOffTimeMs || 9999999999999;
+                const bTime = b.tipOffTimeMs || 9999999999999;
+                return aTime - bTime;
+            });
         };
 
         const filteredGames = computed(() => {
@@ -2007,49 +1778,132 @@ createApp({
             } else if (quickFilter.value === 'strong') {
                 list = list.filter(g => g.result && g.result.finalAction === 'STRONG BET');
             } else if (quickFilter.value === 'lean') {
-                list = list.filter(g => g.result && (g.result.finalAction === 'LEAN' || g.result.finalAction.includes('LEAN')));
+                list = list.filter(g => g.result && g.result.finalAction === 'LEAN');
             }
 
             return sortGamesByTime(list);
         });
 
         const analyzedGames = computed(() => {
-            if (!games.value || !Array.isArray(games.value)) return [];
+            if (!games.value) return [];
             return games.value.filter(g => g.result && g.result.finalAction !== 'OFF');
         });
 
-        const actionableGames = computed(() => {
-            if (!analyzedGames.value) return [];
-            return analyzedGames.value.filter(g => !g.result.finalAction.includes('PASS'));
-        });
+        const actionableGames = computed(() => analyzedGames.value);
 
-        const strongBetsCount = computed(() => {
-            if (!analyzedGames.value) return 0;
-            return analyzedGames.value.filter(g => g.result.finalAction === 'STRONG BET').length;
-        });
+        const strongBetsCount = computed(() => analyzedGames.value.filter(g => g.result.finalAction === 'STRONG BET').length);
 
-        const leansCount = computed(() => {
-            if (!analyzedGames.value) return 0;
-            return analyzedGames.value.filter(g => g.result.finalAction === 'LEAN' || g.result.finalAction.includes('LEAN')).length;
-        });
+        const tier2PlaysCount = computed(() => analyzedGames.value.filter(g => g.result.finalAction === 'LEAN').length);
 
-        const summaryList = computed(() => {
-            if (!analyzedGames.value) return [];
-            let list = analyzedGames.value;
-            if (showOnlyActionable.value) {
-                list = analyzedGames.value.filter(g => !g.result.finalAction.includes('PASS'));
+        const summaryList = computed(() => sortGamesByTime(analyzedGames.value));
+
+        // Timeframe Historical Records Computation
+        const isDateInTimeframe = (dateStr, tf) => {
+            if (!dateStr) return tf === 'today' || tf === 'season';
+            const todayIso = getTodayIso();
+            const yestIso = getYesterdayIso();
+
+            if (tf === 'today') return dateStr === todayIso;
+            if (tf === 'yesterday') return dateStr === yestIso;
+
+            const now = new Date();
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const itemDate = new Date(y, m - 1, d);
+
+            if (tf === 'week') {
+                const curr = new Date();
+                const first = curr.getDate() - curr.getDay() + 1;
+                const monday = new Date(curr.setDate(first));
+                monday.setHours(0, 0, 0, 0);
+                return itemDate >= monday;
             }
-            return sortGamesByTime(list);
+            if (tf === 'month') {
+                return itemDate.getFullYear() === now.getFullYear() && itemDate.getMonth() === now.getMonth();
+            }
+            return true;
+        };
+
+        const calcRecord = (filterFn) => {
+            let w = 0, l = 0, p = 0;
+            Object.values(grades.value).forEach(item => {
+                if (!item || !item.grade) return;
+                if (!isDateInTimeframe(item.date, activeTimeframe.value)) return;
+                if (filterFn && !filterFn(item)) return;
+
+                if (item.grade === 'W') w++;
+                else if (item.grade === 'L') l++;
+                else if (item.grade === 'P') p++;
+            });
+
+            const decided = w + l;
+            const winPct = decided > 0 ? ((w / decided) * 100).toFixed(1) : '0.0';
+            return { w, l, p, total: w + l + p, winPct };
+        };
+
+        const strongRecord = computed(() => calcRecord(item => item.signal === 'STRONG BET'));
+        const leanRecord = computed(() => calcRecord(item => item.signal === 'LEAN'));
+        const overallRecord = computed(() => calcRecord(() => true));
+
+        // Historical Ledger Table List
+        const filteredGradedGames = computed(() => {
+            const list = [];
+            Object.entries(grades.value).forEach(([k, item]) => {
+                if (!item) return;
+                if (!isDateInTimeframe(item.date, activeTimeframe.value)) return;
+                if (recordSignalFilter.value === 'strong' && item.signal !== 'STRONG BET') return;
+                if (recordSignalFilter.value === 'lean' && item.signal !== 'LEAN') return;
+                if (recordOutcomeFilter.value !== 'all' && item.grade !== recordOutcomeFilter.value) return;
+
+                list.push({
+                    key: k,
+                    date: item.date || 'Today',
+                    road: item.road || k.split('__')[0],
+                    home: item.home || k.split('__')[1],
+                    signal: item.signal || 'LEAN',
+                    delta: item.delta !== undefined ? item.delta : 2.5,
+                    pick: item.pick || 'Target',
+                    awayScore: item.awayScore,
+                    homeScore: item.homeScore,
+                    grade: item.grade,
+                    isLive: false
+                });
+            });
+
+            if (activeTimeframe.value === 'today') {
+                games.value.forEach(g => {
+                    const st = getGameLiveStatus(g);
+                    if (st && st.isLive && !st.isCompleted && !st.isPre) {
+                        const key = getGameKey(g);
+                        if (!grades.value[key]) {
+                            list.unshift({
+                                key: 'live_' + key,
+                                date: 'Today (Live)',
+                                road: g.road,
+                                home: g.home,
+                                signal: g.result.finalAction,
+                                delta: g.result.delta,
+                                pick: `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`,
+                                awayScore: st.awayScore,
+                                homeScore: st.homeScore,
+                                grade: null,
+                                isLive: true
+                            });
+                        }
+                    }
+                });
+            }
+
+            return list;
         });
 
         const copySummaryToClipboard = () => {
             if (!summaryList.value || summaryList.value.length === 0) return;
-            
             let text = `🏀 NBA Analyzer - Summary Report\n`;
-            text = text + `========================================\n`;
+            text += `========================================\n`;
             summaryList.value.forEach(g => {
-                const pickStr = g.result.finalDir !== 'None' ? `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})` : 'PASS';
-                text = text + `${g.road} ${g.neutral == 1 ? 'vs.' : '@'} ${g.home} | Line: ${formatMetric(g.liveLine)} | Delta: Δ ${formatDeltaNum(g.result.delta)} pts | Signal: ${g.result.finalAction} | Pick: ${pickStr}\n`;
+                const pickStr = `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`;
+                const lineSrc = g.lineSource === 'ESPN' ? ' [ESPN]' : '';
+                text += `${g.road} @ ${g.home} | Line: ${formatMetric(g.liveLine)}${lineSrc} | Delta: Δ ${formatDeltaNum(g.result.delta)} pts | Signal: ${g.result.finalAction} | Pick: ${pickStr}\n`;
             });
 
             const textArea = document.createElement('textarea');
@@ -2060,369 +1914,33 @@ createApp({
                 document.execCommand('copy');
                 copyButtonText.value = 'Copied! ✓';
                 setTimeout(() => { copyButtonText.value = 'Copy Summary'; }, 2000);
-            } catch (e) {
-                console.error('Copy failed', e);
-            }
+            } catch (e) {}
             document.body.removeChild(textArea);
         };
 
-        const getGameKey = (game) => {
-            return `${game.road}__${game.home}`;
+        const startAutoRefresh = () => {
+            if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+            autoRefreshTimer = setInterval(() => {
+                if (autoRefresh.value) fetchLiveScores();
+            }, 30000);
         };
 
-        const getGameGrade = (game) => {
-            const key = getGameKey(game);
-            return grades.value[key] || { grade: null, awayScore: null, homeScore: null };
-        };
-
-        const getDisplayScore = (game) => {
-            const live = getGameLiveStatus(game);
-            const grade = getGameGrade(game);
-            
-            let away = '—';
-            let home = '—';
-
-            if (live && !live.isPre && (live.isLive || live.isCompleted)) {
-                if (live.awayScore !== null && live.awayScore !== undefined) away = live.awayScore;
-                if (live.homeScore !== null && live.homeScore !== undefined) home = live.homeScore;
-            } else if (grade && grade.awayScore !== null && grade.awayScore !== undefined && !isGamePre(game)) {
-                away = grade.awayScore;
-                home = grade.homeScore;
-            }
-
-            return { away, home };
-        };
-
-        const saveGradesToLocal = () => {
+        onMounted(() => {
             try {
-                localStorage.setItem(`nba_grades_${syncChannel.value}`, JSON.stringify(grades.value));
-            } catch (e) {
-                console.warn("Could not save to localStorage", e);
-            }
-        };
+                const saved = localStorage.getItem('nba_quant_grades');
+                if (saved) grades.value = JSON.parse(saved);
+            } catch (e) {}
 
-        const loadGradesFromLocal = () => {
-            try {
-                const saved = localStorage.getItem(`nba_grades_${syncChannel.value}`);
-                if (saved) {
-                    grades.value = JSON.parse(saved);
-                } else {
-                    grades.value = {};
-                }
-            } catch (e) {
-                console.warn("Could not load from localStorage", e);
-            }
-        };
-
-        const saveGradeToCloud = async (key, item) => {
-            if (cloudSyncStatus.value === 'local' || !db || !auth?.currentUser) {
-                saveGradesToLocal();
-                return;
-            }
-            try {
-                const cleanKey = key.replace(/\//g, '_');
-                const docId = `${syncChannel.value}___${cleanKey}`;
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'nba_grades', docId);
-                await setDoc(docRef, {
-                    ...item,
-                    channel: syncChannel.value,
-                    key: key,
-                    updatedAt: Date.now()
-                });
-            } catch (e) {
-                console.error("Error saving grade to cloud, falling back to local:", e);
-                saveGradesToLocal();
-            }
-        };
-
-        const setupRealtimeSync = () => {
-            if (cloudSyncStatus.value === 'local' || !db || !auth?.currentUser) {
-                loadGradesFromLocal();
-                return;
-            }
-
-            if (unsubscribeGrades) {
-                unsubscribeGrades();
-            }
-
-            cloudSyncStatus.value = 'connecting';
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'nba_grades');
-
-            unsubscribeGrades = onSnapshot(colRef, (snapshot) => {
-                const newGrades = {};
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    if (data && data.channel === syncChannel.value && data.key) {
-                        newGrades[data.key] = data;
-                    }
-                });
-                grades.value = newGrades;
-                cloudSyncStatus.value = 'synced';
-            }, (error) => {
-                console.warn("Realtime cloud listener error, falling back to local mode:", error);
-                cloudSyncStatus.value = 'local';
-                loadGradesFromLocal();
-            });
-        };
-
-        const computeScoreGrade = (game, entry) => {
-            if (entry.awayScore === null || entry.homeScore === null || (entry.liveLine === null && game.liveLine === null)) return;
-            const actualHomeMargin = entry.homeScore - entry.awayScore;
-            const line = entry.liveLine !== undefined && entry.liveLine !== null ? entry.liveLine : game.liveLine;
-
-            const dir = entry.finalDir || (game.result ? game.result.finalDir : null);
-            if (!dir) return;
-
-            if (dir === 'Home') {
-                if (actualHomeMargin > line) {
-                    entry.grade = 'W';
-                } else if (actualHomeMargin < line) {
-                    entry.grade = 'L';
-                } else {
-                    entry.grade = 'P';
-                }
-            } else if (dir === 'Away') {
-                if (actualHomeMargin < line) {
-                    entry.grade = 'W';
-                } else if (actualHomeMargin > line) {
-                    entry.grade = 'L';
-                } else {
-                    entry.grade = 'P';
-                }
-            }
-        };
-
-        const calcPerformance = (targetSignal, timeframe) => {
-            const allGradedList = Object.entries(grades.value).map(([k, v]) => ({ key: k, ...v }));
-
-            let w = 0, l = 0, p = 0;
-            allGradedList.forEach(item => {
-                if (!item || !item.grade || item.grade === 'LIVE') return;
-
-                const itemDate = item.date || item.timestamp;
-                if (!isDateInTimeframe(itemDate, timeframe)) return;
-
-                const itemSignal = item.signal || 'STRONG BET';
-                if (targetSignal === 'STRONG BET') {
-                    if (itemSignal !== 'STRONG BET') return;
-                } else if (targetSignal === 'LEAN') {
-                    if (itemSignal !== 'LEAN' && itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN')) return;
-                } else if (targetSignal === 'ALL') {
-                    if (itemSignal.includes('PASS')) return;
-                }
-
-                if (item.grade === 'W') w++;
-                else if (item.grade === 'L') l++;
-                else if (item.grade === 'P') p++;
-            });
-
-            const decided = w + l;
-            const winPct = decided > 0 ? ((w / decided) * 100).toFixed(1) : '0.0';
-
-            return {
-                w,
-                l,
-                p,
-                total: w + l + p,
-                decided,
-                winPct
-            };
-        };
-
-        const strongRecord = computed(() => calcPerformance('STRONG BET', timeframeFilter.value));
-        const leansRecord = computed(() => calcPerformance('LEAN', timeframeFilter.value));
-        const overallRecord = computed(() => calcPerformance('ALL', timeframeFilter.value));
-
-        const getTimeframeGradedCount = (tf) => {
-            let count = 0;
-            Object.values(grades.value).forEach(it => {
-                if (it && it.grade && it.grade !== 'LIVE' && isDateInTimeframe(it.date || it.timestamp, tf)) {
-                    count++;
-                }
-            });
-            return count;
-        };
-
-        // Unified Ledger combining historical records with active live / same-day completed matchups
-        const filteredGradedGames = computed(() => {
-            const recordsMap = new Map();
-
-            // 1. Add all stored historical grades
-            Object.entries(grades.value).forEach(([k, v]) => {
-                if (v && v.grade) {
-                    recordsMap.set(k, { key: k, ...v });
-                }
-            });
-
-            // 2. Incorporate current slate games (Live or Finished today)
-            if (games.value && Array.isArray(games.value)) {
-                games.value.forEach(g => {
-                    if (!g.result || g.result.finalAction === 'OFF' || g.result.finalDir === 'None') return;
-                    const key = getGameKey(g);
-                    const liveSt = getGameLiveStatus(g);
-
-                    const isLive = isGameLive(g);
-                    const isCompleted = !isGamePre(g) && (liveSt?.isCompleted || getGameGrade(g)?.grade);
-
-                    if (isLive || isCompleted) {
-                        const existing = recordsMap.get(key);
-                        const scoreInfo = getDisplayScore(g);
-                        const todayIso = getTodayIso();
-
-                        if (isLive) {
-                            recordsMap.set(key, {
-                                ...(existing || {}),
-                                key,
-                                road: g.road,
-                                home: g.home,
-                                neutral: g.neutral,
-                                signal: g.result.finalAction,
-                                delta: g.result.delta,
-                                targetTeam: g.result.targetTeam,
-                                finalDir: g.result.finalDir,
-                                liveLine: g.liveLine,
-                                awayScore: scoreInfo.away,
-                                homeScore: scoreInfo.home,
-                                isLive: true,
-                                grade: 'LIVE',
-                                date: todayIso,
-                                dateFormatted: 'Today',
-                                timestamp: Date.now()
-                            });
-                        } else if (isCompleted && (!existing || existing.grade === 'LIVE')) {
-                            const gradeVal = getGameGrade(g)?.grade || null;
-                            if (gradeVal && gradeVal !== 'LIVE') {
-                                recordsMap.set(key, {
-                                    key,
-                                    road: g.road,
-                                    home: g.home,
-                                    neutral: g.neutral,
-                                    signal: g.result.finalAction,
-                                    delta: g.result.delta,
-                                    targetTeam: g.result.targetTeam,
-                                    finalDir: g.result.finalDir,
-                                    liveLine: g.liveLine,
-                                    awayScore: scoreInfo.away,
-                                    homeScore: scoreInfo.home,
-                                    grade: gradeVal,
-                                    date: todayIso,
-                                    dateFormatted: 'Today',
-                                    timestamp: Date.now()
-                                });
-                            }
-                        }
-                    }
-                });
-            }
-
-            const list = Array.from(recordsMap.values());
-
-            return list.filter(item => {
-                const itemDate = item.date || item.timestamp;
-                if (!isDateInTimeframe(itemDate, timeframeFilter.value)) return false;
-
-                const itemSignal = item.signal || 'STRONG BET';
-                if (signalFilter.value === 'STRONG BET' && itemSignal !== 'STRONG BET') return false;
-                if (signalFilter.value === 'LEAN' && itemSignal !== 'LEAN' && itemSignal !== 'TIER 2 LEAN' && !itemSignal.includes('LEAN')) return false;
-
-                if (recordFilter.value !== 'all') {
-                    if (item.grade !== recordFilter.value) return false;
-                }
-
-                return true;
-            }).sort((a, b) => {
-                if (a.isLive && !b.isLive) return -1;
-                if (!a.isLive && b.isLive) return 1;
-                return (b.timestamp || 0) - (a.timestamp || 0);
-            });
-        });
-
-        const getResultBoxClasses = (res) => {
-            if (!res) return 'border-slate-800 bg-slate-950/60 text-slate-400';
-            if (res.finalAction.includes('STRONG BET')) {
-                return 'border-emerald-600/80 bg-emerald-950/30 text-emerald-200 shadow-emerald-950/20';
-            } else if (res.finalAction.includes('LEAN')) {
-                return 'border-sky-600/80 bg-sky-950/30 text-sky-200';
-            }
-            return 'border-slate-800 bg-slate-950/60 text-slate-400';
-        };
-
-        const getSummaryBadgeClasses = (res) => {
-            if (!res) return 'bg-slate-800 text-slate-400 border-slate-700';
-            if (res.finalAction.includes('STRONG BET')) {
-                return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-            } else if (res.finalAction.includes('LEAN')) {
-                return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
-            }
-            return 'bg-slate-800 text-slate-400 border-slate-700';
-        };
-
-        const getTierBadgeClass = (status) => {
-            if (status === 'BET') return 'text-emerald-400 font-extrabold';
-            if (status === 'LEAN') return 'text-sky-400 font-extrabold';
-            return 'text-slate-500';
-        };
-
-        const getModelCellClass = (valStr, liveLine) => {
-            const val = parseNum(valStr);
-            const line = parseNum(liveLine);
-            if (val === null || line === null) return 'border-slate-800 text-slate-500 bg-slate-950/50';
-            if (val > line) {
-                return 'border-emerald-900/60 bg-emerald-950/20 text-emerald-300';
-            } else if (val < line) {
-                return 'border-sky-900/60 bg-sky-950/20 text-sky-300';
-            }
-            return 'border-slate-800 text-slate-400 bg-slate-950/50';
-        };
-
-        onMounted(async () => {
-            let configToUse = null;
-            if (typeof __firebase_config !== 'undefined') {
-                try {
-                    configToUse = JSON.parse(__firebase_config);
-                } catch (e) {}
-            } else if (customFirebaseConfig) {
-                configToUse = customFirebaseConfig;
-            }
-
-            if (configToUse) {
-                try {
-                    app = initializeApp(configToUse);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-
-                    currentUserId.value = auth.currentUser?.uid || '';
-                    setupRealtimeSync();
-                } catch (e) {
-                    console.warn("Cloud storage init error; running in local storage mode:", e);
-                    cloudSyncStatus.value = 'local';
-                    loadGradesFromLocal();
-                }
-            } else {
-                cloudSyncStatus.value = 'local';
-                loadGradesFromLocal();
-            }
-
+            initFirebase();
             fetchSheetData();
             startAutoRefresh();
         });
 
         onUnmounted(() => {
             if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-            if (unsubscribeGrades) unsubscribeGrades();
         });
 
         return {
-            sheetUrl,
-            currentUserId,
-            cloudSyncStatus,
-            syncChannel,
             games,
             loading,
             isPullingScores,
@@ -2432,16 +1950,13 @@ createApp({
             activeTab,
             searchQuery,
             quickFilter,
-            recordFilter,
-            recordFilterOptions,
-            signalFilter,
-            signalFilterOptions,
-            timeframeFilter,
+            activeTimeframe,
             timeframeOptions,
-            showOnlyActionable,
+            recordSignalFilter,
+            recordOutcomeFilter,
+            recordFilterOptions,
             statusMessage,
             statusType,
-            dataSource,
             copyButtonText,
             grades,
             modelTiers,
@@ -2450,13 +1965,13 @@ createApp({
             analyzedGames,
             actionableGames,
             strongBetsCount,
-            leansCount,
+            tier2PlaysCount,
             summaryList,
             strongRecord,
-            leansRecord,
+            leanRecord,
             overallRecord,
-            getTimeframeGradedCount,
             filteredGradedGames,
+            deleteGrade,
             getModelVal,
             formatMetric,
             formatDeltaNum,
@@ -2465,10 +1980,10 @@ createApp({
             formatBetSpread,
             getDeltaCharacteristic,
             getDeltaBadgeClass,
-            getGameTimestamp,
-            getGameDisplayTime,
-            sortGamesByTime,
-            analyzeGame,
+            getResultBoxClasses,
+            getSummaryBadgeClasses,
+            getTierBadgeClass,
+            getModelCellClass,
             fetchSheetData,
             fetchLiveScores,
             getGameLiveStatus,
@@ -2476,15 +1991,9 @@ createApp({
             getWinProbTextColor,
             getWinProbBarColor,
             copySummaryToClipboard,
-            getGameKey,
-            getGameGrade,
             getDisplayScore,
-            getResultBoxClasses,
-            getSummaryBadgeClasses,
-            getTierBadgeClass,
-            getModelCellClass,
-            isGameLive,
-            isGamePre
+            getGameGrade,
+            isGameLive
         };
     }
 }).mount('#app');
