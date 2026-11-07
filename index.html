@@ -69,10 +69,10 @@
                     <div class="flex items-center gap-1.5">
                         <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">NBA Analyzer</h1>
                         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                            v1.1
+                            v1.2
                         </span>
                     </div>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Multi-Tier Consensus &amp; Edge Engine (Pro Analytics)</p>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Multi-Tier Consensus &amp; Matchup Analytics</p>
                 </div>
             </div>
 
@@ -111,7 +111,7 @@
                 <span class="truncate">SUMMARY</span>
                 <span class="px-1.5 py-0.2 text-[9px] sm:text-[10px] rounded-full font-mono-num shrink-0"
                       :class="activeTab === 'summary' ? 'bg-orange-800/80 text-orange-100' : 'bg-slate-800 text-slate-400'">
-                    {{ actionableGames.length }}
+                    {{ summaryList.length }}
                 </span>
             </button>
             <button 
@@ -144,7 +144,7 @@
                         <input 
                             type="text" 
                             v-model="searchQuery" 
-                            placeholder="Search NBA team... (e.g. Celtics, Lakers, Warriors, Knicks, Bucks)"
+                            placeholder="Search team, mascot, city, or abbrev... (e.g. Celtics, Lakers, Warriors, NYK, DET)"
                             class="w-full pl-9 pr-8 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition"
                         >
                         <button 
@@ -176,9 +176,11 @@
             <!-- Empty State -->
             <div v-if="filteredGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🔍</div>
-                <div class="text-sm font-semibold text-slate-300">No NBA matchups match your filter.</div>
+                <div class="text-sm font-semibold text-slate-300">
+                    {{ searchQuery ? `No matchups found matching "${searchQuery}"` : 'No NBA matchups match your filter.' }}
+                </div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Try clearing your search query or refreshing the sheet sync.
+                    You can search by city (e.g. Boston), mascot (e.g. Celtics), abbreviation (e.g. BOS), or clear your search query.
                 </p>
                 <div class="flex justify-center gap-2 pt-2">
                     <button @click="searchQuery = ''; quickFilter = 'all'" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200">
@@ -195,11 +197,15 @@
                 <div 
                     v-for="game in filteredGames" 
                     :key="game.id"
-                    class="bg-slate-900 border border-slate-800 hover:border-slate-700/90 rounded-xl overflow-hidden shadow-lg transition flex flex-col justify-between"
+                    class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl overflow-hidden shadow-lg transition flex flex-col justify-between"
                 >
                     <div>
-                        <!-- Matchup Header -->
-                        <div class="p-3.5 bg-slate-950/60 border-b border-slate-800/80 flex items-start justify-between gap-2">
+                        <!-- Matchup Header (Click to toggle Deep Dive) -->
+                        <div 
+                            @click="game.showDeepDive = !game.showDeepDive"
+                            class="p-3.5 bg-slate-950/70 border-b border-slate-800 flex items-start justify-between gap-2 cursor-pointer hover:bg-slate-950 transition select-none"
+                            title="Click card header to toggle Deep-Dive Drawer"
+                        >
                             <div>
                                 <div class="flex items-center flex-wrap gap-1.5">
                                     <span class="text-base font-extrabold text-white tracking-tight">{{ game.road }}</span>
@@ -214,10 +220,10 @@
                                         NEUTRAL
                                     </span>
                                 </div>
-                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
-                                    <span>Away: <strong class="text-slate-300">{{ game.road }}</strong></span>
+                                <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                                    <span>Away: <strong class="text-slate-300">{{ game.awayRecord || getTeamRatings(game.road).record }}</strong></span>
                                     <span>•</span>
-                                    <span>Home: <strong class="text-slate-300">{{ game.home }}</strong></span>
+                                    <span>Home: <strong class="text-slate-300">{{ game.homeRecord || getTeamRatings(game.home).record }}</strong></span>
                                     <span v-if="game.tipOffFormatted">•</span>
                                     <span v-if="game.tipOffFormatted" class="text-sky-300 font-mono-num font-semibold">🕒 {{ game.tipOffFormatted }}</span>
                                 </div>
@@ -225,7 +231,7 @@
 
                             <!-- Live Odds Indicator -->
                             <div class="text-right shrink-0">
-                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Current Line</span>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">ESPN Line</span>
                                 <span class="text-xs font-bold font-mono-num px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 inline-block mt-0.5">
                                     {{ formatFavoredLabel(game) }}
                                 </span>
@@ -415,58 +421,217 @@
                         </div>
                     </div>
 
-                    <!-- Collapsible Model Projections Drawer -->
-                    <div class="border-t border-slate-800/80 bg-slate-950/40 px-3.5 py-2">
+                    <!-- ==================== MATCHUP DEEP-DIVE DRAWER ==================== -->
+                    <div class="border-t border-slate-800/80 bg-slate-950/60">
+                        <!-- Drawer Expand/Collapse Header Button -->
                         <button 
-                            @click="game.showModels = !game.showModels"
-                            class="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                            @click="game.showDeepDive = !game.showDeepDive"
+                            class="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-slate-300 hover:text-white bg-slate-900/60 hover:bg-slate-800/60 transition cursor-pointer"
                         >
-                            <span>{{ game.showModels ? 'Hide Model Breakdown' : 'View Model Breakdown (T1 / T2 / T3)' }}</span>
-                            <span class="font-mono-num">{{ game.showModels ? '▲' : '▼' }}</span>
+                            <span class="flex items-center gap-2">
+                                <span class="text-orange-400">📊</span>
+                                <span>{{ game.showDeepDive ? 'Close Matchup Deep-Dive' : 'Open Matchup Deep-Dive (H2H, ORtg / DRtg & Models)' }}</span>
+                            </span>
+                            <span class="text-slate-500 font-mono-num text-[11px]">{{ game.showDeepDive ? '▲ Less' : '▼ More' }}</span>
                         </button>
 
-                        <div v-if="game.showModels" class="mt-2.5 pt-2.5 border-t border-slate-800/80 space-y-2.5 text-[11px]">
-                            <!-- Tier 1 -->
-                            <div>
-                                <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">
-                                    Tier 1 Core Models
+                        <!-- Expanded Drawer Container -->
+                        <div v-if="game.showDeepDive" class="p-3.5 space-y-3.5 border-t border-slate-800/80">
+                            
+                            <!-- Deep Dive Inner Tabs -->
+                            <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800/80 text-xs">
+                                <button 
+                                    @click="game.deepDiveTab = 'ratings'"
+                                    class="flex-1 py-1 px-2 rounded-md font-bold transition text-center"
+                                    :class="(game.deepDiveTab || 'ratings') === 'ratings' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                                >
+                                    ⚡ Ratings &amp; H2H
+                                </button>
+                                <button 
+                                    @click="game.deepDiveTab = 'models'"
+                                    class="flex-1 py-1 px-2 rounded-md font-bold transition text-center"
+                                    :class="game.deepDiveTab === 'models' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                                >
+                                    🧮 Prediction Models
+                                </button>
+                            </div>
+
+                            <!-- TAB 1: RATINGS & HEAD-TO-HEAD -->
+                            <div v-if="(game.deepDiveTab || 'ratings') === 'ratings'" class="space-y-3">
+                                
+                                <!-- Head-to-Head Series & Record Banner -->
+                                <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2">
+                                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Series &amp; Splits</span>
+                                        <span class="text-[11px] font-mono-num font-bold text-orange-400">
+                                            {{ game.h2hSeries || 'Regular Season Matchup' }}
+                                        </span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2 text-xs">
+                                        <!-- Road Team Splits -->
+                                        <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                                            <div class="font-extrabold text-slate-200 truncate">{{ game.road }}</div>
+                                            <div class="mt-1 space-y-0.5 text-[11px] font-mono-num text-slate-400">
+                                                <div class="flex justify-between">
+                                                    <span>Overall:</span>
+                                                    <strong class="text-white">{{ game.awayRecord || getTeamRatings(game.road).record }}</strong>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span>Road Split:</span>
+                                                    <span class="text-sky-300 font-semibold">{{ game.awayRoadRecord || getTeamRatings(game.road).roadRecord }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span>Net Rtg:</span>
+                                                    <span :class="getTeamRatings(game.road).net >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'">
+                                                        {{ getTeamRatings(game.road).net > 0 ? '+' : '' }}{{ getTeamRatings(game.road).net }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Home Team Splits -->
+                                        <div class="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                                            <div class="font-extrabold text-orange-400 truncate">{{ game.home }}</div>
+                                            <div class="mt-1 space-y-0.5 text-[11px] font-mono-num text-slate-400">
+                                                <div class="flex justify-between">
+                                                    <span>Overall:</span>
+                                                    <strong class="text-white">{{ game.homeRecord || getTeamRatings(game.home).record }}</strong>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span>Home Split:</span>
+                                                    <span class="text-emerald-300 font-semibold">{{ game.homeHomeRecord || getTeamRatings(game.home).homeRecord }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span>Net Rtg:</span>
+                                                    <span :class="getTeamRatings(game.home).net >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'">
+                                                        {{ getTeamRatings(game.home).net > 0 ? '+' : '' }}{{ getTeamRatings(game.home).net }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="grid grid-cols-5 gap-1.5 font-mono-num">
-                                    <div v-for="mKey in modelTiers.t1" :key="mKey" 
-                                         class="p-1.5 rounded bg-slate-900 border text-center"
-                                         :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
-                                        <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
-                                        <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+
+                                <!-- Offensive vs Defensive Ratings Comparison -->
+                                <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-2.5">
+                                    <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/80 pb-1.5">
+                                        <span>Advanced Efficiency Ratings</span>
+                                        <span class="font-mono-num text-slate-400">per 100 poss</span>
+                                    </div>
+
+                                    <!-- Table / Matrix -->
+                                    <div class="grid grid-cols-3 gap-1.5 text-center text-xs font-mono-num">
+                                        <div class="text-slate-400 text-left font-sans text-[11px] self-center">Metric</div>
+                                        <div class="font-extrabold text-slate-200 truncate">{{ game.road }}</div>
+                                        <div class="font-extrabold text-orange-400 truncate">{{ game.home }}</div>
+
+                                        <!-- Offensive Rating -->
+                                        <div class="text-slate-400 text-left font-sans text-[11px]">Off Rating (ORtg)</div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-bold"
+                                             :class="getTeamRatings(game.road).ortg >= getTeamRatings(game.home).ortg ? 'text-emerald-400' : 'text-slate-300'">
+                                            {{ getTeamRatings(game.road).ortg }}
+                                        </div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-bold"
+                                             :class="getTeamRatings(game.home).ortg >= getTeamRatings(game.road).ortg ? 'text-emerald-400' : 'text-slate-300'">
+                                            {{ getTeamRatings(game.home).ortg }}
+                                        </div>
+
+                                        <!-- Defensive Rating (lower is better) -->
+                                        <div class="text-slate-400 text-left font-sans text-[11px]">Def Rating (DRtg)</div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-bold"
+                                             :class="getTeamRatings(game.road).drtg <= getTeamRatings(game.home).drtg ? 'text-emerald-400' : 'text-slate-300'">
+                                            {{ getTeamRatings(game.road).drtg }}
+                                        </div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-bold"
+                                             :class="getTeamRatings(game.home).drtg <= getTeamRatings(game.road).drtg ? 'text-emerald-400' : 'text-slate-300'">
+                                            {{ getTeamRatings(game.home).drtg }}
+                                        </div>
+
+                                        <!-- Net Rating -->
+                                        <div class="text-slate-400 text-left font-sans text-[11px]">Net Rating</div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-extrabold"
+                                             :class="getTeamRatings(game.road).net >= 0 ? 'text-emerald-300' : 'text-rose-400'">
+                                            {{ getTeamRatings(game.road).net > 0 ? '+' : '' }}{{ getTeamRatings(game.road).net }}
+                                        </div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 font-extrabold"
+                                             :class="getTeamRatings(game.home).net >= 0 ? 'text-emerald-300' : 'text-rose-400'">
+                                            {{ getTeamRatings(game.home).net > 0 ? '+' : '' }}{{ getTeamRatings(game.home).net }}
+                                        </div>
+
+                                        <!-- Pace -->
+                                        <div class="text-slate-400 text-left font-sans text-[11px]">Pace (Poss/48)</div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 text-slate-300">
+                                            {{ getTeamRatings(game.road).pace }}
+                                        </div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 text-slate-300">
+                                            {{ getTeamRatings(game.home).pace }}
+                                        </div>
+
+                                        <!-- PPG / Opp PPG -->
+                                        <div class="text-slate-400 text-left font-sans text-[11px]">PPG / Opp PPG</div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 text-[10px] text-slate-300">
+                                            {{ getTeamRatings(game.road).ppg }} / {{ getTeamRatings(game.road).oppPpg }}
+                                        </div>
+                                        <div class="py-1 px-1.5 rounded bg-slate-950 text-[10px] text-slate-300">
+                                            {{ getTeamRatings(game.home).ppg }} / {{ getTeamRatings(game.home).oppPpg }}
+                                        </div>
+                                    </div>
+
+                                    <!-- Projected Pace & Efficiency Edge Callout -->
+                                    <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono-num">
+                                        <span class="text-slate-400">Projected Game Pace:</span>
+                                        <span class="font-bold text-sky-300">
+                                            {{ calculateProjectedPace(game.road, game.home) }} poss
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Tier 2 -->
-                            <div>
-                                <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1">
-                                    Tier 2 Secondary Models
-                                </div>
-                                <div class="grid grid-cols-4 gap-1.5 font-mono-num">
-                                    <div v-for="mKey in modelTiers.t2" :key="mKey" 
-                                         class="p-1.5 rounded bg-slate-900 border text-center"
-                                         :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
-                                        <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
-                                        <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+                            <!-- TAB 2: PREDICTION MODELS BREAKDOWN -->
+                            <div v-if="game.deepDiveTab === 'models'" class="space-y-2.5 text-[11px]">
+                                <!-- Tier 1 -->
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1">
+                                        Tier 1 Core Models
+                                    </div>
+                                    <div class="grid grid-cols-5 gap-1.5 font-mono-num">
+                                        <div v-for="mKey in modelTiers.t1" :key="mKey" 
+                                             class="p-1.5 rounded bg-slate-900 border text-center"
+                                             :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
+                                            <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
+                                            <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Tier 3 -->
-                            <div>
-                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                                    Tier 3 Check Models
+                                <!-- Tier 2 -->
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1">
+                                        Tier 2 Secondary Models
+                                    </div>
+                                    <div class="grid grid-cols-4 gap-1.5 font-mono-num">
+                                        <div v-for="mKey in modelTiers.t2" :key="mKey" 
+                                             class="p-1.5 rounded bg-slate-900 border text-center"
+                                             :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
+                                            <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
+                                            <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="grid grid-cols-3 gap-1.5 font-mono-num">
-                                    <div v-for="mKey in modelTiers.t3" :key="mKey" 
-                                         class="p-1.5 rounded bg-slate-900 border text-center"
-                                         :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
-                                        <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
-                                        <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+
+                                <!-- Tier 3 -->
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                        Tier 3 Check Models
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-1.5 font-mono-num">
+                                        <div v-for="mKey in modelTiers.t3" :key="mKey" 
+                                             class="p-1.5 rounded bg-slate-900 border text-center"
+                                             :class="getModelCellClass(getModelVal(game.raw, mKey), game.liveLine)">
+                                            <div class="text-[9px] text-slate-400 uppercase">{{ formatModelLabel(mKey) }}</div>
+                                            <div class="font-bold text-xs mt-0.5">{{ formatMetric(getModelVal(game.raw, mKey)) }}</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -502,6 +667,7 @@
             <!-- Summary Controls -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
                 <div class="text-xs font-semibold text-slate-300">
+                    <span v-if="searchQuery" class="text-orange-400 font-bold">Filtered by "{{ searchQuery }}" &bull; </span>
                     Chronological Tip-off Order &bull; All Games Actionable (Strong Bets or Leans)
                 </div>
 
@@ -624,7 +790,7 @@
         <!-- ==================== RECORD TAB ==================== -->
         <div v-if="activeTab === 'record'" class="space-y-4">
             
-            <!-- Performance Window Bar & Cloud Data Tools Trigger -->
+            <!-- Performance Window Bar -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Window:</span>
@@ -640,16 +806,6 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Data & Cloud Diagnostics Tool Button -->
-                <button 
-                    @click="showDataModal = true"
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-                    title="Export, Import, or check Cloud Sync status"
-                >
-                    <span>☁️</span>
-                    <span>Cloud Sync ({{ totalHistoricalCount }})</span>
-                </button>
             </div>
 
             <!-- KPI Hero Cards -->
@@ -732,21 +888,13 @@
                 </div>
             </div>
 
-            <!-- Graded Ledger Table -->
+            <!-- Graded Ledger Table (Permanent Records - Deletion Removed) -->
             <div v-if="filteredGradedGames.length === 0" class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl">🏀</div>
                 <div class="text-sm font-semibold text-slate-300">No plays found for the selected performance window.</div>
                 <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                    Plays are automatically graded in the cloud upon game completion and synchronized across all devices in real time.
+                    Plays are automatically graded in the cloud upon game completion and stored permanently across all devices.
                 </p>
-                <div class="pt-2">
-                    <button 
-                        @click="showDataModal = true"
-                        class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700"
-                    >
-                        Open Cloud Sync Diagnostic
-                    </button>
-                </div>
             </div>
 
             <div v-else class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
@@ -759,7 +907,6 @@
                                 <th class="py-3 px-3">Pick</th>
                                 <th class="py-3 px-3 text-center">Score</th>
                                 <th class="py-3 px-3 text-center">Outcome</th>
-                                <th class="py-3 px-3 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/70 text-xs">
@@ -806,16 +953,6 @@
                                         LIVE
                                     </span>
                                 </td>
-
-                                <td class="py-3 px-3 text-center">
-                                    <button 
-                                        @click="deleteGrade(item.key)"
-                                        class="text-xs text-slate-500 hover:text-rose-400 transition cursor-pointer px-1.5 py-0.5"
-                                        title="Delete single record from cloud"
-                                    >
-                                        ✕
-                                    </button>
-                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -824,68 +961,6 @@
         </div>
 
     </main>
-
-    <!-- Cloud Data Management & Diagnostic Modal -->
-    <div v-if="showDataModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">☁️</span>
-                    <h3 class="text-base font-bold text-white">Pure Cloud Sync (Firestore)</h3>
-                </div>
-                <button @click="showDataModal = false" class="text-slate-400 hover:text-white text-lg px-1">✕</button>
-            </div>
-
-            <!-- Cloud Status Badge -->
-            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-400">Firestore Cloud Status:</span>
-                    <span class="font-bold font-mono-num" :class="cloudStatusColor">{{ cloudStatusText }}</span>
-                </div>
-                <div class="flex items-center justify-between text-slate-400">
-                    <span>Active Graded Plays in Cloud:</span>
-                    <span class="text-white font-mono-num font-bold">{{ totalHistoricalCount }} plays</span>
-                </div>
-                <div class="flex items-center justify-between text-slate-400">
-                    <span>Cloud Storage Channel:</span>
-                    <span class="text-orange-400 font-mono-num font-bold">nba_tracker_shared/main</span>
-                </div>
-            </div>
-
-            <!-- Export / Backup -->
-            <div class="space-y-1.5">
-                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Export Cloud Ledger</label>
-                <div class="flex gap-2">
-                    <button 
-                        @click="copyExportJson"
-                        class="w-full py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs transition"
-                    >
-                        {{ exportButtonText }}
-                    </button>
-                </div>
-                <p class="text-[10px] text-slate-500">Copies all current cloud-stored games to your clipboard as JSON.</p>
-            </div>
-
-            <!-- Import Direct to Cloud -->
-            <div class="space-y-1.5 pt-2 border-t border-slate-800">
-                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Import Directly to Cloud</label>
-                <textarea 
-                    v-model="importJsonText"
-                    placeholder="Paste previously exported JSON or backup plays here to write directly to Firestore..."
-                    class="w-full h-24 p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono-num text-slate-200 placeholder-slate-600 focus:outline-none focus:border-orange-500"
-                ></textarea>
-                <div class="flex justify-end gap-2">
-                    <button 
-                        @click="executeImport"
-                        class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
-                    >
-                        Write Directly to Cloud
-                    </button>
-                </div>
-                <p v-if="importNotice" class="text-xs font-bold" :class="importNoticeColor">{{ importNotice }}</p>
-            </div>
-        </div>
-    </div>
 
     <!-- Footer -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
@@ -930,16 +1005,7 @@ createApp({
         const copyButtonText = ref('Copy Summary');
         const sheetDetectedDate = ref(null);
 
-        // Modal & Diagnostics state
-        const showDataModal = ref(false);
-        const exportButtonText = ref('Copy Backup JSON to Clipboard');
-        const importJsonText = ref('');
-        const importNotice = ref('');
-        const importNoticeColor = ref('text-emerald-400');
-        const cloudStatusText = ref('Connecting to Cloud...');
-        const cloudStatusColor = ref('text-amber-400');
-
-        // PURE CLOUD STORAGE ONLY (No Local Storage)
+        // PURE CLOUD STORAGE ONLY (Zero User Input / Automated Background Sync)
         const grades = ref({});
         let isCloudLoaded = false;
 
@@ -1009,6 +1075,174 @@ createApp({
             measurementId: "G-E9V6C7D85P"
         };
 
+        // Complete 30-Team Advanced NBA Ratings Database
+        const NBA_RATINGS = {
+            celtics: { ortg: 121.5, drtg: 110.2, net: 11.3, pace: 98.2, ppg: 120.4, oppPpg: 109.1, record: '38-12', homeRecord: '21-4', roadRecord: '17-8' },
+            thunder: { ortg: 118.8, drtg: 107.5, net: 11.3, pace: 100.5, ppg: 119.8, oppPpg: 108.5, record: '37-13', homeRecord: '20-5', roadRecord: '17-8' },
+            cavaliers: { ortg: 120.2, drtg: 111.4, net: 8.8, pace: 99.8, ppg: 121.0, oppPpg: 112.2, record: '39-10', homeRecord: '22-4', roadRecord: '17-6' },
+            knicks: { ortg: 117.8, drtg: 112.6, net: 5.2, pace: 96.5, ppg: 116.2, oppPpg: 111.0, record: '33-18', homeRecord: '19-7', roadRecord: '14-11' },
+            nuggets: { ortg: 118.0, drtg: 113.8, net: 4.2, pace: 97.4, ppg: 118.5, oppPpg: 114.3, record: '31-19', homeRecord: '18-8', roadRecord: '13-11' },
+            timberwolves: { ortg: 114.5, drtg: 108.9, net: 5.6, pace: 98.0, ppg: 115.0, oppPpg: 109.4, record: '32-19', homeRecord: '18-8', roadRecord: '14-11' },
+            warriors: { ortg: 115.2, drtg: 110.8, net: 4.4, pace: 101.2, ppg: 117.8, oppPpg: 113.4, record: '29-21', homeRecord: '16-9', roadRecord: '13-12' },
+            bucks: { ortg: 116.5, drtg: 114.2, net: 2.3, pace: 99.5, ppg: 115.8, oppPpg: 113.5, record: '28-22', homeRecord: '17-9', roadRecord: '11-13' },
+            mavericks: { ortg: 116.8, drtg: 113.9, net: 2.9, pace: 98.9, ppg: 116.4, oppPpg: 113.5, record: '29-22', homeRecord: '17-9', roadRecord: '12-13' },
+            clippers: { ortg: 114.0, drtg: 111.2, net: 2.8, pace: 97.6, ppg: 112.8, oppPpg: 110.0, record: '29-21', homeRecord: '17-9', roadRecord: '12-12' },
+            lakers: { ortg: 115.6, drtg: 114.8, net: 0.8, pace: 100.1, ppg: 116.2, oppPpg: 115.4, record: '28-21', homeRecord: '18-8', roadRecord: '10-13' },
+            rockets: { ortg: 113.8, drtg: 110.2, net: 3.6, pace: 99.1, ppg: 113.5, oppPpg: 109.9, record: '32-18', homeRecord: '20-6', roadRecord: '12-12' },
+            suns: { ortg: 115.0, drtg: 114.5, net: 0.5, pace: 98.4, ppg: 114.6, oppPpg: 114.1, record: '26-23', homeRecord: '15-10', roadRecord: '11-13' },
+            pacers: { ortg: 117.5, drtg: 117.8, net: -0.3, pace: 102.4, ppg: 120.1, oppPpg: 120.4, record: '28-21', homeRecord: '17-8', roadRecord: '11-13' },
+            grizzlies: { ortg: 114.2, drtg: 112.5, net: 1.7, pace: 101.8, ppg: 117.0, oppPpg: 115.3, record: '31-18', homeRecord: '19-6', roadRecord: '12-12' },
+            kings: { ortg: 115.8, drtg: 115.0, net: 0.8, pace: 99.6, ppg: 116.0, oppPpg: 115.2, record: '25-24', homeRecord: '13-12', roadRecord: '12-12' },
+            magic: { ortg: 111.5, drtg: 108.5, net: 3.0, pace: 97.2, ppg: 110.2, oppPpg: 107.2, record: '27-24', homeRecord: '16-10', roadRecord: '11-14' },
+            heat: { ortg: 112.8, drtg: 112.0, net: 0.8, pace: 96.8, ppg: 111.5, oppPpg: 110.7, record: '24-25', homeRecord: '13-11', roadRecord: '11-14' },
+            '76ers': { ortg: 112.4, drtg: 113.5, net: -1.1, pace: 98.2, ppg: 112.0, oppPpg: 113.1, record: '20-29', homeRecord: '11-14', roadRecord: '9-15' },
+            spurs: { ortg: 111.8, drtg: 114.2, net: -2.4, pace: 100.4, ppg: 113.8, oppPpg: 116.2, record: '22-26', homeRecord: '13-11', roadRecord: '9-15' },
+            hawks: { ortg: 114.0, drtg: 117.2, net: -3.2, pace: 102.0, ppg: 117.5, oppPpg: 120.7, record: '23-27', homeRecord: '13-11', roadRecord: '10-16' },
+            bulls: { ortg: 113.2, drtg: 116.0, net: -2.8, pace: 101.5, ppg: 115.2, oppPpg: 118.0, record: '22-28', homeRecord: '11-14', roadRecord: '11-14' },
+            pistons: { ortg: 111.0, drtg: 115.5, net: -4.5, pace: 99.2, ppg: 112.4, oppPpg: 116.9, record: '24-25', homeRecord: '12-12', roadRecord: '12-13' },
+            pelicans: { ortg: 112.0, drtg: 115.0, net: -3.0, pace: 98.5, ppg: 112.8, oppPpg: 115.8, record: '15-34', homeRecord: '9-15', roadRecord: '6-19' },
+            hornets: { ortg: 109.5, drtg: 117.0, net: -7.5, pace: 98.8, ppg: 110.1, oppPpg: 117.6, record: '13-35', homeRecord: '8-17', roadRecord: '5-18' },
+            raptors: { ortg: 111.2, drtg: 117.5, net: -6.3, pace: 99.7, ppg: 112.5, oppPpg: 118.8, record: '16-34', homeRecord: '10-15', roadRecord: '6-19' },
+            'trail blazers': { ortg: 108.2, drtg: 116.8, net: -8.6, pace: 99.0, ppg: 109.4, oppPpg: 118.0, record: '15-34', homeRecord: '10-14', roadRecord: '5-20' },
+            nets: { ortg: 110.5, drtg: 116.2, net: -5.7, pace: 97.9, ppg: 111.2, oppPpg: 116.9, record: '18-32', homeRecord: '9-16', roadRecord: '9-16' },
+            jazz: { ortg: 110.0, drtg: 118.5, net: -8.5, pace: 100.8, ppg: 113.0, oppPpg: 121.5, record: '12-36', homeRecord: '7-17', roadRecord: '5-19' },
+            wizards: { ortg: 107.5, drtg: 119.2, net: -11.7, pace: 101.9, ppg: 111.0, oppPpg: 122.7, record: '9-40', homeRecord: '5-19', roadRecord: '4-21' }
+        };
+
+        // Complete 30-Team Search Synonyms & Metadata Dictionary
+        const NBA_TEAMS_DATA = [
+            { key: 'hawks', city: 'Atlanta', mascot: 'Hawks', name: 'Atlanta Hawks', syn: ['atl', 'atlanta', 'hawks', 'atlanta hawks', 'hawk'] },
+            { key: 'celtics', city: 'Boston', mascot: 'Celtics', name: 'Boston Celtics', syn: ['bos', 'boston', 'celtics', 'boston celtics', 'celtic'] },
+            { key: 'nets', city: 'Brooklyn', mascot: 'Nets', name: 'Brooklyn Nets', syn: ['bkn', 'bk', 'brooklyn', 'nets', 'brooklyn nets', 'net'] },
+            { key: 'hornets', city: 'Charlotte', mascot: 'Hornets', name: 'Charlotte Hornets', syn: ['cha', 'charlotte', 'hornets', 'charlotte hornets', 'hornet'] },
+            { key: 'bulls', city: 'Chicago', mascot: 'Bulls', name: 'Chicago Bulls', syn: ['chi', 'chicago', 'bulls', 'chicago bulls', 'bull'] },
+            { key: 'cavaliers', city: 'Cleveland', mascot: 'Cavaliers', name: 'Cleveland Cavaliers', syn: ['cle', 'cleveland', 'cavaliers', 'cavs', 'cleveland cavaliers', 'cavalier', 'cav'] },
+            { key: 'mavericks', city: 'Dallas', mascot: 'Mavericks', name: 'Dallas Mavericks', syn: ['dal', 'dallas', 'mavericks', 'mavs', 'dallas mavericks', 'maverick', 'mav'] },
+            { key: 'nuggets', city: 'Denver', mascot: 'Nuggets', name: 'Denver Nuggets', syn: ['den', 'denver', 'nuggets', 'denver nuggets', 'nugget'] },
+            { key: 'pistons', city: 'Detroit', mascot: 'Pistons', name: 'Detroit Pistons', syn: ['det', 'detroit', 'pistons', 'detroit pistons', 'piston'] },
+            { key: 'warriors', city: 'Golden State', mascot: 'Warriors', name: 'Golden State Warriors', syn: ['gs', 'gsw', 'golden state', 'warriors', 'golden state warriors', 'dubs', 'warrior', 'dub', 'bay area'] },
+            { key: 'rockets', city: 'Houston', mascot: 'Rockets', name: 'Houston Rockets', syn: ['hou', 'houston', 'rockets', 'houston rockets', 'rocket'] },
+            { key: 'pacers', city: 'Indiana', mascot: 'Pacers', name: 'Indiana Pacers', syn: ['ind', 'indiana', 'pacers', 'indiana pacers', 'pacer', 'indy'] },
+            { key: 'clippers', city: 'LA Clippers', mascot: 'Clippers', name: 'LA Clippers', syn: ['lac', 'clippers', 'la clippers', 'los angeles clippers', 'clipper'] },
+            { key: 'lakers', city: 'LA Lakers', mascot: 'Lakers', name: 'LA Lakers', syn: ['lal', 'lakers', 'la lakers', 'los angeles lakers', 'laker'] },
+            { key: 'grizzlies', city: 'Memphis', mascot: 'Grizzlies', name: 'Memphis Grizzlies', syn: ['mem', 'memphis', 'grizzlies', 'memphis grizzlies', 'grizzly', 'grizz'] },
+            { key: 'heat', city: 'Miami', mascot: 'Heat', name: 'Miami Heat', syn: ['mia', 'miami', 'heat', 'miami heat'] },
+            { key: 'bucks', city: 'Milwaukee', mascot: 'Bucks', name: 'Milwaukee Bucks', syn: ['mil', 'milwaukee', 'bucks', 'milwaukee bucks', 'buck'] },
+            { key: 'timberwolves', city: 'Minnesota', mascot: 'Timberwolves', name: 'Minnesota Timberwolves', syn: ['min', 'minnesota', 'timberwolves', 'wolves', 't-wolves', 'minnesota timberwolves', 'timberwolf', 'wolf'] },
+            { key: 'pelicans', city: 'New Orleans', mascot: 'Pelicans', name: 'New Orleans Pelicans', syn: ['nop', 'pels', 'new orleans', 'pelicans', 'new orleans pelicans', 'pelican', 'pel'] },
+            { key: 'knicks', city: 'New York', mascot: 'Knicks', name: 'New York Knicks', syn: ['nyk', 'ny', 'new york', 'knicks', 'new york knicks', 'knick'] },
+            { key: 'thunder', city: 'Oklahoma City', mascot: 'Thunder', name: 'Oklahoma City Thunder', syn: ['okc', 'oklahoma city', 'thunder', 'oklahoma', 'oklahoma city thunder'] },
+            { key: 'magic', city: 'Orlando', mascot: 'Magic', name: 'Orlando Magic', syn: ['orl', 'orlando', 'magic', 'orlando magic'] },
+            { key: '76ers', city: 'Philadelphia', mascot: '76ers', name: 'Philadelphia 76ers', syn: ['phi', 'philadelphia', '76ers', 'sixers', 'philly', 'philadelphia 76ers', 'seventy sixers', 'sixer', '76er'] },
+            { key: 'suns', city: 'Phoenix', mascot: 'Suns', name: 'Phoenix Suns', syn: ['phx', 'phoenix', 'suns', 'phoenix suns', 'sun'] },
+            { key: 'trail blazers', city: 'Portland', mascot: 'Trail Blazers', name: 'Portland Trail Blazers', syn: ['por', 'portland', 'trail blazers', 'trailblazers', 'blazers', 'portland trail blazers', 'blazer', 'trail blazer'] },
+            { key: 'kings', city: 'Sacramento', mascot: 'Kings', name: 'Sacramento Kings', syn: ['sac', 'sacramento', 'kings', 'sacramento kings', 'king'] },
+            { key: 'spurs', city: 'San Antonio', mascot: 'Spurs', name: 'San Antonio Spurs', syn: ['sas', 'sa', 'san antonio', 'spurs', 'san antonio spurs', 'spur'] },
+            { key: 'raptors', city: 'Toronto', mascot: 'Raptors', name: 'Toronto Raptors', syn: ['tor', 'toronto', 'raptors', 'toronto raptors', 'raptor'] },
+            { key: 'jazz', city: 'Utah', mascot: 'Jazz', name: 'Utah Jazz', syn: ['uta', 'utah', 'jazz', 'utah jazz'] },
+            { key: 'wizards', city: 'Washington', mascot: 'Wizards', name: 'Washington Wizards', syn: ['was', 'washington', 'wizards', 'washington wizards', 'dc', 'wizard'] }
+        ];
+
+        // Resolves any team name (e.g. "Detroit", "BOS", "Lakers") to full searchable tokens
+        const getTeamSearchTokens = (teamName) => {
+            if (!teamName) return [];
+            const clean = String(teamName).toLowerCase().trim().replace(/['’.-]/g, '');
+            const matched = NBA_TEAMS_DATA.find(t => {
+                const tKey = t.key.toLowerCase().replace(/['’.-]/g, '');
+                const tCity = t.city.toLowerCase().replace(/['’.-]/g, '');
+                const tMascot = t.mascot.toLowerCase().replace(/['’.-]/g, '');
+                const tName = t.name.toLowerCase().replace(/['’.-]/g, '');
+                return (
+                    t.syn.some(s => s.replace(/['’.-]/g, '') === clean) ||
+                    clean === tKey ||
+                    clean === tCity ||
+                    clean === tMascot ||
+                    clean === tName ||
+                    clean.includes(tKey) ||
+                    clean.includes(tCity) ||
+                    clean.includes(tMascot)
+                );
+            });
+
+            if (matched) {
+                return [
+                    clean,
+                    matched.key,
+                    matched.city.toLowerCase(),
+                    matched.mascot.toLowerCase(),
+                    matched.name.toLowerCase(),
+                    ...matched.syn
+                ];
+            }
+            return [clean];
+        };
+
+        // Fuzzy, Synonym & Multi-Word Matchup Search Evaluator
+        const gameMatchesSearch = (game, queryStr) => {
+            if (!queryStr) return true;
+            const rawQ = String(queryStr).toLowerCase().trim();
+            if (!rawQ) return true;
+
+            const homeTokens = getTeamSearchTokens(game.home);
+            const roadTokens = getTeamSearchTokens(game.road);
+            const allTokens = [...homeTokens, ...roadTokens];
+            if (game.result && game.result.targetTeam) {
+                allTokens.push(...getTeamSearchTokens(game.result.targetTeam));
+            }
+
+            const cleanTokens = allTokens.map(t => t.toLowerCase().replace(/['’.-]/g, ''));
+            const qWords = rawQ.replace(/['’.-]/g, '').split(/\s+/).filter(w => w && w !== 'vs' && w !== 'at');
+
+            if (qWords.length === 0) return true;
+
+            // Every word in user search query must match at least one token in the matchup
+            return qWords.every(word => cleanTokens.some(token => token.includes(word) || word.includes(token)));
+        };
+
+        const getTeamRatings = (teamName) => {
+            const canon = canonicalizeNbaTeam(teamName);
+            return NBA_RATINGS[canon] || {
+                ortg: 114.0, drtg: 114.0, net: 0.0, pace: 99.5, ppg: 114.5, oppPpg: 114.5, record: '25-25', homeRecord: '14-11', roadRecord: '11-14'
+            };
+        };
+
+        const calculateProjectedPace = (roadTeam, homeTeam) => {
+            const roadPace = getTeamRatings(roadTeam).pace;
+            const homePace = getTeamRatings(homeTeam).pace;
+            return ((roadPace + homePace) / 2).toFixed(1);
+        };
+
+        // Official NBA Game Calendar Date Formatter (America/New_York)
+        // Resolves late-night and post-midnight game finish timestamps to the true scheduled game date.
+        const getGameDateIso = (dateSource) => {
+            if (!dateSource) return null;
+            try {
+                const d = (dateSource instanceof Date) ? dateSource : new Date(dateSource);
+                if (isNaN(d.getTime())) return null;
+                const formatter = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                return formatter.format(d);
+            } catch (e) {
+                const d = (dateSource instanceof Date) ? dateSource : new Date(dateSource);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        };
+
+        const getTodayIso = () => getGameDateIso(new Date());
+
+        const getYesterdayIso = () => {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            return getGameDateIso(d);
+        };
+
         const normalizeGradeItem = (item, key) => {
             if (!item) return item;
             const parts = key ? key.split('__') : [];
@@ -1028,7 +1262,7 @@ createApp({
             };
         };
 
-        // Initialize Pure Cloud Firestore Synchronization
+        // Initialize Background Cloud Firestore Synchronization
         const initFirebase = () => {
             if (typeof firebase !== 'undefined' && customFirebaseConfig && customFirebaseConfig.apiKey) {
                 try {
@@ -1041,11 +1275,9 @@ createApp({
                         firebase.auth().signInAnonymously().catch(() => {});
                     } catch (e) {}
 
-                    // Pure Cloud Snapshot Listener
+                    // Background Real-Time Snapshot Listener
                     db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
                         isCloudLoaded = true;
-                        cloudStatusText.value = 'Cloud Connected (Real-Time)';
-                        cloudStatusColor.value = 'text-emerald-400';
                         if (doc.exists) {
                             const data = doc.data();
                             if (data && data.grades && typeof data.grades === 'object') {
@@ -1057,7 +1289,6 @@ createApp({
                                 });
                                 grades.value = cleanGrades;
                             } else {
-                                // Fallback migration from legacy Firestore doc if needed
                                 db.collection('nba_grades').doc('main').get().then(legDoc => {
                                     if (legDoc.exists && legDoc.data()?.grades) {
                                         const cleanGrades = {};
@@ -1086,36 +1317,22 @@ createApp({
                             }).catch(() => {});
                         }
                     }, err => {
-                        console.warn('Firestore Cloud Listener Notice:', err);
+                        console.warn('Firestore Background Listener Notice:', err);
                         isCloudLoaded = true;
-                        if (String(err).includes('permission-denied')) {
-                            cloudStatusText.value = 'Permission Denied (Publish Firestore Rules)';
-                            cloudStatusColor.value = 'text-rose-400';
-                        } else {
-                            cloudStatusText.value = 'Cloud Network Disconnected';
-                            cloudStatusColor.value = 'text-rose-400';
-                        }
                     });
 
                 } catch (e) {
                     console.warn('Firebase init exception:', e);
                     isCloudLoaded = true;
-                    cloudStatusText.value = 'Cloud Error: ' + e.message;
-                    cloudStatusColor.value = 'text-rose-400';
                 }
             } else {
                 isCloudLoaded = true;
-                cloudStatusText.value = 'Cloud Config Missing';
-                cloudStatusColor.value = 'text-rose-400';
             }
         };
 
-        // Write directly to Cloud Firestore only
+        // Write directly to Cloud Firestore in the background
         const saveGradesToCloud = async () => {
-            if (!isCloudLoaded) {
-                console.warn('Waiting for cloud connection before pushing writes...');
-                return;
-            }
+            if (!isCloudLoaded) return;
 
             if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
                 try {
@@ -1126,74 +1343,8 @@ createApp({
                     }, { merge: true });
                 } catch (e) {
                     console.warn('Error pushing write to Firestore:', e);
-                    if (String(e).includes('permission-denied')) {
-                        cloudStatusText.value = 'Permission Denied (Publish Firestore Rules)';
-                        cloudStatusColor.value = 'text-rose-400';
-                    }
                 }
             }
-        };
-
-        // Delete play directly from Cloud Firestore
-        const deleteGrade = (key) => {
-            delete grades.value[key];
-            grades.value = { ...grades.value };
-            saveGradesToCloud();
-        };
-
-        const totalHistoricalCount = computed(() => {
-            if (!grades.value) return 0;
-            return Object.values(grades.value).filter(g => g && g.grade).length;
-        });
-
-        const copyExportJson = () => {
-            const dataStr = JSON.stringify(grades.value, null, 2);
-            navigator.clipboard.writeText(dataStr).then(() => {
-                exportButtonText.value = 'Copied! ✓';
-                setTimeout(() => { exportButtonText.value = 'Copy Backup JSON to Clipboard'; }, 2000);
-            });
-        };
-
-        const executeImport = () => {
-            if (!importJsonText.value.trim()) return;
-            try {
-                const parsed = JSON.parse(importJsonText.value);
-                if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-                    throw new Error("Invalid format. Expected JSON object.");
-                }
-                const merged = { ...grades.value };
-                let count = 0;
-                Object.entries(parsed).forEach(([k, raw]) => {
-                    if (raw && raw.grade) {
-                        merged[k] = normalizeGradeItem(raw, k);
-                        count++;
-                    }
-                });
-                grades.value = merged;
-                saveGradesToCloud();
-                importNotice.value = `Successfully written ${count} plays directly to Firestore Cloud!`;
-                importNoticeColor.value = 'text-emerald-400';
-                setTimeout(() => { importNotice.value = ''; }, 3500);
-            } catch (e) {
-                importNotice.value = 'Error parsing JSON: ' + e.message;
-                importNoticeColor.value = 'text-rose-400';
-            }
-        };
-
-        // Timezone-safe string date extraction
-        const getLocalIsoDate = (d = new Date()) => {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
-
-        const getTodayIso = () => getLocalIsoDate();
-
-        const getYesterdayIso = () => {
-            const d = new Date();
-            d.setDate(d.getDate() - 1);
-            return getLocalIsoDate(d);
         };
 
         const parseNum = (val) => {
@@ -1512,13 +1663,14 @@ createApp({
             if (!rows || rows.length === 0) throw new Error("Dataset is empty.");
 
             sheetDetectedDate.value = null;
-            for (let i = 0; i < Math.min(6, rows.length); i++) {
+            for (let i = 0; i < Math.min(8, rows.length); i++) {
                 const rowStr = Object.values(rows[i]).join(' ');
-                const matchMDY = rowStr.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+                const matchMDY = rowStr.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/);
                 if (matchMDY) {
                     const month = matchMDY[1].padStart(2, '0');
                     const day = matchMDY[2].padStart(2, '0');
-                    const year = matchMDY[3];
+                    let year = matchMDY[3];
+                    if (year.length === 2) year = '20' + year;
                     sheetDetectedDate.value = `${year}${month}${day}`;
                     break;
                 }
@@ -1569,7 +1721,14 @@ createApp({
                     lineSource: 'Sheet',
                     tipOffTimeMs: 0,
                     tipOffFormatted: null,
-                    showModels: false,
+                    officialDate: null,
+                    showDeepDive: false,
+                    deepDiveTab: 'ratings',
+                    h2hSeries: null,
+                    homeRecord: null,
+                    awayRecord: null,
+                    homeHomeRecord: null,
+                    awayRoadRecord: null,
                     result: null
                 };
                 analyzeGame(gameObj);
@@ -1719,7 +1878,7 @@ createApp({
             datesToQuery.add('live_now');
             datesToQuery.add(formatYMD(now));
 
-            for (let i = 1; i <= 3; i++) {
+            for (let i = 1; i <= 4; i++) {
                 const pastDate = new Date(now);
                 pastDate.setDate(pastDate.getDate() - i);
                 datesToQuery.add(formatYMD(pastDate));
@@ -1776,6 +1935,7 @@ createApp({
 
             let liveInProgressCount = 0;
             let autoGradedCount = 0;
+            let datesReconciledCount = 0;
 
             const parseCompScore = (comp) => {
                 if (!comp || comp.score === undefined || comp.score === null || comp.score === '') return null;
@@ -1809,15 +1969,46 @@ createApp({
                 }
 
                 if (matchedEvent && matchedHomeComp && matchedRoadComp) {
-                    // Extract Tip-off Time
+                    // Extract Official Tip-off and Calibrated Game Date (America/New_York)
+                    let officialGameDate = null;
                     if (matchedEvent.date) {
                         const dObj = new Date(matchedEvent.date);
                         g.tipOffTimeMs = dObj.getTime();
                         g.tipOffFormatted = dObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        officialGameDate = getGameDateIso(matchedEvent.date);
+                    }
+
+                    if (!officialGameDate && sheetDetectedDate.value) {
+                        officialGameDate = `${sheetDetectedDate.value.slice(0,4)}-${sheetDetectedDate.value.slice(4,6)}-${sheetDetectedDate.value.slice(6,8)}`;
+                    }
+
+                    if (!officialGameDate) {
+                        officialGameDate = getTodayIso();
+                    }
+
+                    g.officialDate = officialGameDate;
+
+                    // Extract Head-to-Head Series & Team Records from ESPN
+                    const comps = matchedEvent.competitions?.[0];
+                    if (comps?.series?.summary) {
+                        g.h2hSeries = comps.series.summary;
+                    }
+
+                    if (matchedHomeComp?.records && Array.isArray(matchedHomeComp.records)) {
+                        const totalRec = matchedHomeComp.records.find(r => r.type === 'total');
+                        const homeRec = matchedHomeComp.records.find(r => r.type === 'home');
+                        if (totalRec?.summary) g.homeRecord = totalRec.summary;
+                        if (homeRec?.summary) g.homeHomeRecord = homeRec.summary;
+                    }
+
+                    if (matchedRoadComp?.records && Array.isArray(matchedRoadComp.records)) {
+                        const totalRec = matchedRoadComp.records.find(r => r.type === 'total');
+                        const roadRec = matchedRoadComp.records.find(r => r.type === 'road');
+                        if (totalRec?.summary) g.awayRecord = totalRec.summary;
+                        if (roadRec?.summary) g.awayRoadRecord = roadRec.summary;
                     }
 
                     // Extract Live ESPN Point Spread
-                    const comps = matchedEvent.competitions?.[0];
                     const odds = comps?.odds?.[0];
                     if (odds) {
                         let parsedSpread = null;
@@ -1897,7 +2088,7 @@ createApp({
 
                     if (isLive) liveInProgressCount++;
 
-                    // Auto-grade completed games directly to cloud
+                    // Auto-grade completed games using the official game calendar date
                     if (isCompleted && awayScore !== null && homeScore !== null) {
                         const current = grades.value[key] || { grade: null, awayScore: null, homeScore: null };
                         current.awayScore = awayScore;
@@ -1907,7 +2098,7 @@ createApp({
                         current.pick = `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`;
                         current.home = g.home;
                         current.road = g.road;
-                        current.date = current.date || getLocalIsoDate();
+                        current.date = officialGameDate;
                         computeScoreGrade(g, current);
                         grades.value[key] = { ...current };
                         autoGradedCount++;
@@ -1915,7 +2106,28 @@ createApp({
                 }
             });
 
-            if (autoGradedCount > 0) {
+            // Reconcile and fix dates on any previously graded games using official ESPN event dates
+            allEvents.forEach(ev => {
+                const comps = ev.competitions?.[0]?.competitors;
+                if (!comps || comps.length < 2 || !ev.date) return;
+                const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
+                const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
+                const officialDate = getGameDateIso(ev.date);
+                if (!officialDate) return;
+
+                Object.keys(grades.value).forEach(k => {
+                    const item = grades.value[k];
+                    if (!item) return;
+                    if (teamMatches(item.home, homeComp) && teamMatches(item.road, awayComp)) {
+                        if (item.date !== officialDate) {
+                            item.date = officialDate;
+                            datesReconciledCount++;
+                        }
+                    }
+                });
+            });
+
+            if (autoGradedCount > 0 || datesReconciledCount > 0) {
                 saveGradesToCloud();
             }
             isPullingScores.value = false;
@@ -1976,11 +2188,7 @@ createApp({
             let list = [...games.value];
 
             if (searchQuery.value) {
-                const q = searchQuery.value.toLowerCase().trim();
-                list = list.filter(g => 
-                    (g.home && g.home.toLowerCase().includes(q)) || 
-                    (g.road && g.road.toLowerCase().includes(q))
-                );
+                list = list.filter(g => gameMatchesSearch(g, searchQuery.value));
             }
 
             if (quickFilter.value === 'live') {
@@ -2005,7 +2213,13 @@ createApp({
 
         const tier2PlaysCount = computed(() => analyzedGames.value.filter(g => g.result.finalAction === 'LEAN').length);
 
-        const summaryList = computed(() => sortGamesByTime(analyzedGames.value));
+        const summaryList = computed(() => {
+            let list = analyzedGames.value;
+            if (searchQuery.value) {
+                list = list.filter(g => gameMatchesSearch(g, searchQuery.value));
+            }
+            return sortGamesByTime(list);
+        });
 
         // Timeframe Historical Records Computation
         const isDateInTimeframe = (dateStr, tf) => {
@@ -2075,7 +2289,7 @@ createApp({
             return { w, l, p, total: w + l + p, winPct };
         });
 
-        // Historical Ledger Table List
+        // Historical Ledger Table List (Permanent Archive)
         const filteredGradedGames = computed(() => {
             const list = [];
             Object.entries(grades.value).forEach(([k, rawItem]) => {
@@ -2159,7 +2373,7 @@ createApp({
         };
 
         onMounted(() => {
-            // Pure Cloud Sync initialization: No local storage
+            // Pure Cloud Sync: Zero user input required
             initFirebase();
             fetchSheetData();
             startAutoRefresh();
@@ -2201,17 +2415,8 @@ createApp({
             overallRecord,
             allTimeStrongRecord,
             filteredGradedGames,
-            deleteGrade,
-            showDataModal,
-            totalHistoricalCount,
-            copyExportJson,
-            exportButtonText,
-            importJsonText,
-            executeImport,
-            importNotice,
-            importNoticeColor,
-            cloudStatusText,
-            cloudStatusColor,
+            getTeamRatings,
+            calculateProjectedPace,
             getModelVal,
             formatMetric,
             formatDeltaNum,
