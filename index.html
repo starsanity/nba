@@ -6,10 +6,10 @@
     <title>NBA Analyzer</title>
     <!-- Tailwind CSS (optional enhancement; full fallback CSS included below so page NEVER renders blank) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase Compat SDKs (loaded safely without blocking page render) -->
+    <!-- Firebase Compat SDKs (App, Auth for Firestore security rules, and Firestore) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,7 +24,6 @@
             -webkit-font-smoothing: antialiased;
         }
         .font-mono-num { font-family: 'JetBrains Mono', monospace; }
-        /* Built-in fallback layout styles in case Tailwind CDN is blocked */
         #app-shell {
             max-width: 1024px;
             margin: 0 auto;
@@ -54,9 +53,13 @@
                 </div>
                 <div class="flex items-center gap-1.5">
                     <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight m-0">NBA Analyzer</h1>
-                    <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                    <button type="button"
+                        onclick="window.__nbaActions.openReadmeModal()"
+                        title="Tap to view README.md"
+                        aria-label="View README.md"
+                        class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-orange-500/15 hover:bg-orange-500/30 active:scale-95 text-orange-400 hover:text-orange-200 border border-orange-500/30 hover:border-orange-400 transition cursor-pointer">
                         v1.3
-                    </span>
+                    </button>
                 </div>
             </div>
 
@@ -94,59 +97,142 @@
     </footer>
 </div>
 
+<!-- README.md Modal Container -->
+<div id="readme-modal-root"></div>
+
 <script>
 (function() {
     // =========================================================================
-    // 1. APPROVED SEASON-TO-DATE ATS STANDINGS (STRICTLY FROM USER TABLE)
-    //    (Any model not listed here is excluded from the leaderboard)
+    // 0. EMBEDDED README.md CONTENT (Synced with README.md for offline/file://)
     // =========================================================================
+    const EMBEDDED_README_MD = `# 🏀 NBA Analyzer (v1.3)
+
+An automated NBA spread analytics, live market line comparison, Closing Line Value (CLV), and multi-tier prediction model tracking application powered by Google Sheets, live ESPN scoreboard/odds feeds, and Google Cloud Firestore.
+
+---
+
+## Core Features
+
+### 1. Matchup Selector & Full Slate View
+- **Focused Single-Matchup View**: Select any matchup from the main dropdown (or cycle with \`◀\` / \`▶\`) to inspect that game's Delta edge, CLV tracker, and efficiency breakdown without clutter.
+- **Display All Games (\`📋 Display All Games\`)**: Expand the full daily slate into a responsive multi-card grid with quick-filter pills (\`All Matchups\`, \`🔴 Live Now\`, \`Strong Bets\`, \`Leans\`) and multi-token franchise search (city, mascot, or abbreviation).
+
+### 2. Delta Gatekeeper Classification
+- **Formula**: \`Δ = |Model Consensus Spread - Live ESPN Line|\`
+
+| Delta Range | Classification | Description |
+|---|---|---|
+| ≥ 4.0 pts | **STRONG BET** | High-confidence edge where top-tier model consensus significantly deviates from live ESPN pricing. Downgraded to **LEAN** if Tier 3 contrarians oppose. |
+| 0.0 - 3.5 pts | **LEAN** | Actionable model lean detecting edge against the market spread. |
+
+- **Zero Passes**: Every matchup on the board produces an actionable pick (\`STRONG BET\` or \`LEAN\`).
+
+### 3. Individual Prediction Model Leaderboard & Dynamic ATS Tiers
+- **Automatic Google Sheet Discovery**: Automatically detects and tracks all prediction model columns present in your connected Google Sheet—including any new models added later in the season.
+- **Daily Auto-Grading & Tier Reassignment**: As games go final, each model's ATS pick is graded automatically in Cloud Firestore and assigned to its active tier based on Season-To-Date ATS win percentage:
+  - **Tier 1 (≥ 54.00% ATS)**: Core consensus models (≥ 25 games predicted).
+  - **Tier 2 (50.00% - 53.99% ATS)**: Secondary consensus models (≥ 25 games predicted).
+  - **Tier 3 (≤ 49.99% ATS)**: Contrarian check models (≥ 25 games predicted).
+  - **New Model (< 25 Games Predicted)**: Newly added sheet models tracked in \`NEW MODEL\` status until reaching 25 predicted games.
+- **Recent Form Tracking**: Displays **Today ATS**, **Yesterday ATS**, and rolling 14-day **Last 2 Weeks** ATS records for every model.
+
+### 4. Closing Line Value (CLV) & Line Movement Tracker
+- Available inside the **Matchup Deep-Dive Drawer** whenever an individual game is selected.
+- Captures the opening spread baseline, tracks live ESPN spread shifts with timestamps, locks the closing spread at tip-off, and calculates net CLV points (\`+CLV\` / \`-CLV\`) relative to the target pick.
+
+### 5. Matchup Deep-Dive Drawer & Live Cover Probability
+- **Ratings & H2H**: Season series summary, overall and home/road split records, Offensive/Defensive/Net Ratings per 100 possessions, and projected game pace.
+- **Live In-Game Win/Cover Tracker**: Real-time cover margin and time-decay normal CDF cover probability bar during live games.
+
+### 6. Automated Cloud Firestore Historical Ledger
+- Automatically grades completed games using official \`America/New_York\` game dates and syncs all outcomes, scores, and model logs across all devices via Google Cloud Firestore (\`nba_tracker_shared/main\`).
+- Preserves all historical games permanently—including season rematches—with zero manual saving or importing required.
+
+---
+
+## Version 1.3 Release Highlights
+- Interactive **\`v1.3\`** header badge to view \`README.md\` directly inside the app.
+- Streamlined main matchup dropdown defaulting to a clean selector prompt with **\`📋 Display All Games\`** option.
+- Single-matchup **Closing Line Value (CLV) & Line Movement Tracker**.
+- Dynamic **Prediction Model Leaderboard** with auto-discovery of new Google Sheet models, 25-game graduation rules, **Yesterday ATS**, and **Last 2 Weeks** columns.
+- Rematch-safe historical cloud synchronization with Firebase authentication and instant cache mirroring.`;
+
+    // =========================================================================
+    // 1. SEASON-TO-DATE ATS STANDINGS + AUTO-DISCOVERY & TIER THRESHOLDS
+    //    Tier 1: >= 54.00% ATS (min 25 games predicted)
+    //    Tier 2: 50.00% - 53.99% ATS (min 25 games predicted)
+    //    Tier 3: <= 49.99% ATS (min 25 games predicted)
+    //    New Model: < 25 total games predicted
+    // =========================================================================
+    const MODEL_BASELINE_DATE = '2026-11-17';
+    const NEW_MODEL_MIN_GAMES = 25;
+    const CLOUD_MIRROR_STORAGE_KEY = 'nba_analyzer_cloud_mirror_v1';
+
     const APPROVED_MODEL_META = {
-        lineagatha:   { name: 'agatha.gg',               code: 'AGATHA', baseW: 38,  baseL: 27,  baseP: 0 }, // 58.462%
-        lineversus:   { name: 'Versus Sports Simulator', code: 'VERSUS', baseW: 105, baseL: 83,  baseP: 0 }, // 55.851%
-        linesagp:     { name: 'Sagarin Predictor',       code: 'SAG-P',  baseW: 103, baseL: 85,  baseP: 0 }, // 54.787%
-        linedoi:      { name: 'DirectorOfInformation.com', code: 'DOI',  baseW: 103, baseL: 85,  baseP: 0 }, // 54.787%
-        linedok:      { name: 'Dokter Entropy',          code: 'DOK',    baseW: 100, baseL: 88,  baseP: 0 }, // 53.191%
-        linegtd:      { name: 'Game Time Decision',      code: 'GTD',    baseW: 93,  baseL: 84,  baseP: 0 }, // 52.542%
-        linesage:     { name: 'Sagarin Rating',          code: 'SAG-E',  baseW: 97,  baseL: 90,  baseP: 0 }, // 51.872%
-        linesaggm:    { name: 'Sagarin Golden Mean',     code: 'SAG-GM', baseW: 97,  baseL: 91,  baseP: 0 }, // 51.596%
-        linesagrec:   { name: 'Sagarin Recent',          code: 'SAG-R',  baseW: 96,  baseL: 92,  baseP: 0 }, // 51.064%
-        linemoore:    { name: 'Sonny Moore',             code: 'MOORE',  baseW: 95,  baseL: 93,  baseP: 0 }, // 50.532%
-        linemassey:   { name: 'Massey Ratings',          code: 'MASSEY', baseW: 95,  baseL: 93,  baseP: 0 }, // 50.532%
-        lineavg:      { name: 'System Average',          code: 'AVG',    baseW: 94,  baseL: 94,  baseP: 0 }, // 50.000%
-        linedratings: { name: 'D Ratings.com',           code: 'DRAT',   baseW: 92,  baseL: 93,  baseP: 0 }, // 49.730%
-        linedunk:     { name: 'Dunkel Index',            code: 'DUNK',   baseW: 84,  baseL: 87,  baseP: 0 }, // 49.123%
-        lineespn:     { name: 'ESPN BPI',                code: 'ESPN',   baseW: 88,  baseL: 100, baseP: 0 }, // 46.809%
-        linetalis:    { name: 'Talisman Red',            code: 'TALIS',  baseW: 82,  baseL: 101, baseP: 0 }, // 44.809%
-        linecomp:     { name: 'Computer Adjusted',       code: 'COMP',   baseW: 83,  baseL: 103, baseP: 0 }, // 44.624%
-        linemodeledge:{ name: 'Model Edge Sports',       code: 'MES',    baseW: 23,  baseL: 30,  baseP: 0 }  // 43.396%
+        lineagatha:   { name: 'agatha.gg',                 code: 'AGATHA', baseW: 43,  baseL: 30,  baseP: 0 }, // 58.90% -> Tier 1
+        lineversus:   { name: 'Versus Sports Simulator',   code: 'VERSUS', baseW: 109, baseL: 87,  baseP: 0 }, // 55.61% -> Tier 1
+        linesagp:     { name: 'Sagarin Predictor',         code: 'SAG-P',  baseW: 107, baseL: 89,  baseP: 0 }, // 54.59% -> Tier 1
+        linedoi:      { name: 'DirectorOfInformation.com', code: 'DOI',    baseW: 105, baseL: 91,  baseP: 0 }, // 53.57% -> Tier 2
+        linegtd:      { name: 'Game Time Decision',        code: 'GTD',    baseW: 98,  baseL: 87,  baseP: 0 }, // 52.97% -> Tier 2
+        linesage:     { name: 'Sagarin Rating',            code: 'SAG-E',  baseW: 102, baseL: 93,  baseP: 0 }, // 52.31% -> Tier 2
+        linedok:      { name: 'Dokter Entropy',            code: 'DOK',    baseW: 102, baseL: 94,  baseP: 0 }, // 52.04% -> Tier 2
+        linesaggm:    { name: 'Sagarin Golden Mean',       code: 'SAG-GM', baseW: 101, baseL: 95,  baseP: 0 }, // 51.53% -> Tier 2
+        linemoore:    { name: 'Sonny Moore',               code: 'MOORE',  baseW: 100, baseL: 96,  baseP: 0 }, // 51.02% -> Tier 2
+        linemassey:   { name: 'Massey Ratings',            code: 'MASSEY', baseW: 100, baseL: 96,  baseP: 0 }, // 51.02% -> Tier 2
+        lineavg:      { name: 'System Average',            code: 'AVG',    baseW: 99,  baseL: 97,  baseP: 0 }, // 50.51% -> Tier 2
+        linesagrec:   { name: 'Sagarin Recent',            code: 'SAG-R',  baseW: 98,  baseL: 98,  baseP: 0 }, // 50.00% -> Tier 2
+        linedratings: { name: 'D Ratings.com',             code: 'DRAT',   baseW: 96,  baseL: 97,  baseP: 0 }, // 49.74% -> Tier 3
+        linedunk:     { name: 'Dunkel Index',              code: 'DUNK',   baseW: 89,  baseL: 90,  baseP: 0 }, // 49.72% -> Tier 3
+        lineespn:     { name: 'ESPN BPI',                  code: 'ESPN',   baseW: 93,  baseL: 103, baseP: 0 }, // 47.45% -> Tier 3
+        linemodeledge:{ name: 'Model Edge Sports',         code: 'MES',    baseW: 28,  baseL: 33,  baseP: 0 }, // 45.90% -> Tier 3
+        linetalis:    { name: 'Talisman Red',              code: 'TALIS',  baseW: 87,  baseL: 104, baseP: 0 }, // 45.55% -> Tier 3
+        linecomp:     { name: 'Computer Adjusted',         code: 'COMP',   baseW: 88,  baseL: 106, baseP: 0 }  // 45.36% -> Tier 3
     };
 
     const columnAliases = {
         lineagatha:    ['lineagatha', 'agatha', 'agatha.gg'],
-        lineversus:    ['lineversus', 'versus', 'versussports'],
-        linesagp:      ['linesagp', 'linesag', 'sagarinpredictor'],
+        lineversus:    ['lineversus', 'versus', 'versussports', 'versus sports simulator'],
+        linesagp:      ['linesagp', 'linesag', 'sagarinpredictor', 'sagarin predictor'],
         linedoi:       ['linedoi', 'doi', 'directorofinformation', 'directorofinformation.com'],
-        linedok:       ['linedok', 'dok', 'dokterentropy'],
-        linegtd:       ['linegtd', 'gtd', 'gametimedecision'],
-        linesage:      ['linesage', 'sagarinrating'],
-        linesaggm:     ['linesaggm', 'saggm', 'sagaringoldenmean'],
-        linesagrec:    ['linesagrec', 'sagrec', 'sagarinrecent'],
-        linemoore:     ['linemoore', 'moore', 'sonnymoore'],
-        linemassey:    ['linemassey', 'massey', 'masseyratings'],
-        lineavg:       ['lineavg', 'line avg', 'avg', 'systemaverage'],
-        linedratings:  ['linedratings', 'dratings', 'dratings.com', 'd ratings'],
-        linedunk:      ['linedunk', 'linedunkel', 'dunkel', 'dunkelindex'],
-        lineespn:      ['lineespn', 'espn', 'espnbpi'],
-        linetalis:     ['linetalis', 'line talis', 'talis', 'talismanred'],
-        linecomp:      ['linecomp', 'computeradjusted', 'comp'],
-        linemodeledge: ['linemodeledge', 'modeledge', 'modeledgesports']
+        linegtd:       ['linegtd', 'gtd', 'gametimedecision', 'game time decision'],
+        linesage:      ['linesage', 'sagarinrating', 'sagarin rating'],
+        linedok:       ['linedok', 'dok', 'dokterentropy', 'dokter entropy'],
+        linesaggm:     ['linesaggm', 'saggm', 'sagaringoldenmean', 'sagarin golden mean'],
+        linemoore:     ['linemoore', 'moore', 'sonnymoore', 'sonny moore'],
+        linemassey:    ['linemassey', 'massey', 'masseyratings', 'massey ratings'],
+        lineavg:       ['lineavg', 'line avg', 'avg', 'systemaverage', 'system average'],
+        linesagrec:    ['linesagrec', 'sagrec', 'sagarinrecent', 'sagarin recent'],
+        linedratings:  ['linedratings', 'dratings', 'dratings.com', 'd ratings', 'd ratings.com'],
+        linedunk:      ['linedunk', 'linedunkel', 'dunkel', 'dunkelindex', 'dunkel index'],
+        lineespn:      ['lineespn', 'espn', 'espnbpi', 'espn bpi'],
+        linemodeledge: ['linemodeledge', 'modeledge', 'modeledgesports', 'model edge sports'],
+        linetalis:     ['linetalis', 'line talis', 'talis', 'talismanred', 'talisman red'],
+        linecomp:      ['linecomp', 'computeradjusted', 'computer adjusted', 'comp']
     };
+
+    const NON_MODEL_COLUMNS = new Set([
+        'home', 'hometeam', 'road', 'roadteam', 'away', 'awayteam', 'visitor', 'visiting', 'visitorteam',
+        'neutral', 'neutralsite', 'site', 'date', 'gamedate', 'time', 'gametime', 'tipoff',
+        'id', 'gameid', 'matchup', 'game', 'status', 'notes', 'comment',
+        'location', 'venue', 'arena', 'conference', 'division', 'season', 'week', 'day',
+        'line', 'marketline', 'closingline', 'close', 'closing', 'spread', 'espnline', 'currentline',
+        'open', 'opening', 'openingline', 'lineopen', 'openline',
+        'total', 'totals', 'ou', 'overunder', 'linetotal',
+        'ml', 'moneyline', 'homeml', 'awayml', 'roadml',
+        'awayscore', 'roadscore', 'homescore', 'score', 'margin', 'actual', 'result', 'winner', 'ats',
+        'std', 'stdev', 'stddev', 'linestd', 'min', 'max', 'median', 'count', 'nummodels'
+    ]);
+
+    const LEGACY_EXCLUDED_MODELS = new Set([
+        'linefox', 'lineround', 'linepugh'
+    ]);
 
     const sheetId = '1nOy4S24eWqOpjIUbw7ZkZwPKHM-GZcHniWy26qSIwyI';
     const state = {
         games: [],
-        sheetModelCatalog: [], // Strictly intersection of Google Sheet columns & APPROVED_MODEL_META
+        sheetModelCatalog: [],
         loading: true,
+        loadError: null,
         isPullingScores: false,
         autoRefresh: true,
         liveGameStatusMap: {},
@@ -162,10 +248,16 @@
         grades: {},
         modelGameLogs: {},
         lineSnapshots: {},
-        isCloudLoaded: false
+        isCloudLoaded: false,
+        hasReceivedCloudSnapshot: false,
+        cloudStatus: 'Connecting to Cloud...',
+        showReadmeModal: false,
+        readmeMarkdown: EMBEDDED_README_MD,
+        readmeFetchedFromFile: false
     };
 
     let autoRefreshTimer = null;
+    let firestoreListenerAttached = false;
 
     const timeframeOptions = [
         { id: 'season', label: 'This Season' },
@@ -299,29 +391,87 @@
     };
 
     // =========================================================================
-    // 2. SHEET-ONLY & APPROVED-ONLY MODEL DISCOVERY + DYNAMIC ATS TIER ENGINE
+    // 2. GOOGLE SHEET MODEL DISCOVERY & TIER CLASSIFICATION ENGINE
     // =========================================================================
-    function buildSheetModelCatalog(headers, dataRows) {
-        const lowerHeaders = headers.map(h => String(h || '').trim().toLowerCase()).filter(Boolean);
-        const discovered = [];
+    function formatAutoModelInfo(rawHeader) {
+        const trimmed = String(rawHeader || '').trim();
+        const withoutPrefix = trimmed.replace(/^line[\s_-]*/i, '').trim() || trimmed;
+        const cleanWords = withoutPrefix
+            .replace(/[_-]+/g, ' ')
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .trim();
+        const displayName = cleanWords
+            .split(/\s+/)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+        const alphaOnly = withoutPrefix.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const shortCode = (alphaOnly.slice(0, 6) || 'MODEL');
+        const canonicalKey = 'line' + trimmed.toLowerCase().replace(/^line[\s_-]*/i, '').replace(/[^a-z0-9]/g, '');
+        return {
+            key: canonicalKey,
+            name: displayName,
+            code: shortCode
+        };
+    }
 
-        // Strictly include models that are BOTH in your Google Sheet AND listed in your approved ATS standings table
+    function buildSheetModelCatalog(headers, dataRows) {
+        const cleanHeaders = headers.map(h => String(h || '').trim()).filter(Boolean);
+        const discovered = [];
+        const claimedLowerHeaders = new Set();
+
         Object.entries(APPROVED_MODEL_META).forEach(([canonicalKey, meta]) => {
             const aliases = columnAliases[canonicalKey] || [canonicalKey];
-            const foundHeader = lowerHeaders.find(h => aliases.includes(h));
-            if (foundHeader) {
-                const hasNumericValues = !dataRows || dataRows.length === 0 || dataRows.some(r => parseNum(getModelVal(r, canonicalKey)) !== null);
+            const foundRawHeader = cleanHeaders.find(h => aliases.includes(h.toLowerCase()));
+            if (foundRawHeader) {
+                const hasNumericValues = !dataRows || dataRows.length === 0 || dataRows.some(r => {
+                    const v = parseNum(r[foundRawHeader]);
+                    return v !== null && Math.abs(v) <= 60;
+                });
                 if (hasNumericValues) {
+                    claimedLowerHeaders.add(foundRawHeader.toLowerCase());
                     discovered.push({
                         key: canonicalKey,
-                        sheetHeader: foundHeader,
+                        rawHeader: foundRawHeader,
+                        sheetHeader: foundRawHeader.toLowerCase(),
                         name: meta.name,
                         code: meta.code,
                         baseW: meta.baseW,
                         baseL: meta.baseL,
-                        baseP: meta.baseP
+                        baseP: meta.baseP,
+                        isAutoDiscovered: false
                     });
                 }
+            }
+        });
+
+        cleanHeaders.forEach(rawH => {
+            const lowerH = rawH.toLowerCase();
+            if (claimedLowerHeaders.has(lowerH)) return;
+
+            const normAlpha = lowerH.replace(/[^a-z0-9]/g, '');
+            if (!normAlpha || NON_MODEL_COLUMNS.has(normAlpha) || LEGACY_EXCLUDED_MODELS.has(normAlpha)) {
+                return;
+            }
+
+            const hasSpreadPredictions = Array.isArray(dataRows) && dataRows.length > 0 && dataRows.some(r => {
+                const v = parseNum(r[rawH]);
+                return v !== null && Math.abs(v) <= 60;
+            });
+
+            if (hasSpreadPredictions) {
+                claimedLowerHeaders.add(lowerH);
+                const autoMeta = formatAutoModelInfo(rawH);
+                discovered.push({
+                    key: autoMeta.key,
+                    rawHeader: rawH,
+                    sheetHeader: lowerH,
+                    name: autoMeta.name,
+                    code: autoMeta.code,
+                    baseW: 0,
+                    baseL: 0,
+                    baseP: 0,
+                    isAutoDiscovered: true
+                });
             }
         });
 
@@ -337,13 +487,33 @@
         if (catalog.length === 0) return [];
 
         const todayIso = getTodayIso();
+        const yesterdayIso = getYesterdayIso();
+        const twoWeeksStartIso = getNDaysAgoIso(14);
+
         const stats = catalog.map(m => {
             let liveW = 0, liveL = 0, liveP = 0;
             let todayW = 0, todayL = 0, todayP = 0;
+            let yesterdayW = 0, yesterdayL = 0, yesterdayP = 0;
+            let twoWeeksW = 0, twoWeeksL = 0, twoWeeksP = 0;
 
             Object.values(state.modelGameLogs).forEach(log => {
                 if (!log || !log.results) return;
                 const res = log.results[m.key];
+                if (!res) return;
+
+                if (log.date === yesterdayIso) {
+                    if (res === 'W') yesterdayW++;
+                    else if (res === 'L') yesterdayL++;
+                    else if (res === 'P') yesterdayP++;
+                }
+
+                if (log.date && log.date >= twoWeeksStartIso && log.date <= todayIso) {
+                    if (res === 'W') twoWeeksW++;
+                    else if (res === 'L') twoWeeksL++;
+                    else if (res === 'P') twoWeeksP++;
+                }
+
+                if (log.date && log.date < MODEL_BASELINE_DATE) return;
                 if (res === 'W') { liveW++; if (log.date === todayIso) todayW++; }
                 else if (res === 'L') { liveL++; if (log.date === todayIso) todayL++; }
                 else if (res === 'P') { liveP++; if (log.date === todayIso) todayP++; }
@@ -353,7 +523,19 @@
             const totalL = m.baseL + liveL;
             const totalP = m.baseP + liveP;
             const decided = totalW + totalL;
-            const winPct = decided > 0 ? (totalW / decided) * 100 : 50.0;
+            const totalPredicted = totalW + totalL + totalP;
+            const winPct = decided > 0 ? (totalW / decided) * 100 : 0.0;
+            const isNewModel = totalPredicted < NEW_MODEL_MIN_GAMES;
+
+            const twoWeeksDecided = twoWeeksW + twoWeeksL;
+            const twoWeeksPct = twoWeeksDecided > 0 ? (twoWeeksW / twoWeeksDecided) * 100 : 0.0;
+
+            let tier = 'NEW';
+            if (!isNewModel) {
+                if (winPct >= 54.0) tier = 1;
+                else if (winPct >= 50.0) tier = 2;
+                else tier = 3;
+            }
 
             return {
                 ...m,
@@ -366,32 +548,38 @@
                 todayW,
                 todayL,
                 todayP,
+                yesterdayW,
+                yesterdayL,
+                yesterdayP,
+                twoWeeksW,
+                twoWeeksL,
+                twoWeeksP,
+                twoWeeksDecided,
+                twoWeeksPct,
                 decided,
+                totalPredicted,
+                isNewModel,
                 winPct,
                 winPctStr: decided > 0 ? winPct.toFixed(2) + '%' : '—',
-                tier: 2,
+                tier,
                 rank: 0
             };
         });
 
-        const ranked = [...stats].sort((a, b) => {
+        const qualifiedModels = stats.filter(m => !m.isNewModel).sort((a, b) => {
             if (Math.abs(b.winPct - a.winPct) > 0.0001) return b.winPct - a.winPct;
             return b.totalW - a.totalW;
         });
 
-        // Dynamically partition the active models into Tiers 1, 2, and 3 by ATS Win %
-        const n = ranked.length;
-        const t1End = Math.max(1, Math.ceil(n * 0.42));
-        const t2End = Math.max(t1End, Math.ceil(n * 0.75));
-
-        ranked.forEach((m, idx) => {
-            m.rank = idx + 1;
-            if (idx < t1End) m.tier = 1;
-            else if (idx < t2End) m.tier = 2;
-            else m.tier = 3;
+        const newModels = stats.filter(m => m.isNewModel).sort((a, b) => {
+            if (b.totalPredicted !== a.totalPredicted) return b.totalPredicted - a.totalPredicted;
+            return b.winPct - a.winPct;
         });
 
-        return ranked;
+        qualifiedModels.forEach((m, idx) => { m.rank = idx + 1; });
+        newModels.forEach((m, idx) => { m.rank = qualifiedModels.length + idx + 1; });
+
+        return [...qualifiedModels, ...newModels];
     }
 
     function getDynamicModelTiers() {
@@ -400,6 +588,7 @@
             t1: ranked.filter(m => m.tier === 1).map(m => m.key),
             t2: ranked.filter(m => m.tier === 2).map(m => m.key),
             t3: ranked.filter(m => m.tier === 3).map(m => m.key),
+            newModels: ranked.filter(m => m.tier === 'NEW').map(m => m.key),
             rankedMap: Object.fromEntries(ranked.map(m => [m.key, m]))
         };
     }
@@ -518,14 +707,18 @@
 
     function getModelVal(rawRow, key) {
         if (!rawRow) return null;
-        const candidates = columnAliases[key] || [key];
+        const catalogEntry = (state.sheetModelCatalog || []).find(m => m.key === key);
+        const candidates = [
+            ...(catalogEntry && catalogEntry.rawHeader ? [catalogEntry.rawHeader] : []),
+            ...(columnAliases[key] || [key])
+        ];
         for (const candidate of candidates) {
             if (rawRow[candidate] !== undefined && rawRow[candidate] !== null && rawRow[candidate] !== '') {
                 return rawRow[candidate];
             }
-            const lowerCand = candidate.toLowerCase();
+            const lowerCand = candidate.toLowerCase().trim();
             for (const rowKey of Object.keys(rawRow)) {
-                if (rowKey.toLowerCase() === lowerCand && rawRow[rowKey] !== undefined && rawRow[rowKey] !== null && rawRow[rowKey] !== '') {
+                if (rowKey.toLowerCase().trim() === lowerCand && rawRow[rowKey] !== undefined && rawRow[rowKey] !== null && rawRow[rowKey] !== '') {
                     return rawRow[rowKey];
                 }
             }
@@ -610,6 +803,11 @@
         d.setDate(d.getDate() - 1);
         return getGameDateIso(d);
     };
+    const getNDaysAgoIso = (days) => {
+        const d = new Date();
+        d.setDate(d.getDate() - days);
+        return getGameDateIso(d);
+    };
 
     function formatMetric(val) {
         const num = parseNum(val);
@@ -653,7 +851,31 @@
     }
 
     const getGameKey = (game) => game ? `${game.road}__${game.home}` : '';
-    const getGameGrade = (game) => game ? (state.grades[getGameKey(game)] || { grade: null, awayScore: null, homeScore: null }) : { grade: null, awayScore: null, homeScore: null };
+
+    function findGradeEntryForGame(game, officialDate) {
+        if (!game) return { key: '', entry: null };
+        const baseKey = getGameKey(game);
+        const datedKey = officialDate ? `${officialDate}__${baseKey}` : baseKey;
+
+        if (state.grades[datedKey]) {
+            return { key: datedKey, entry: state.grades[datedKey] };
+        }
+        if (state.grades[baseKey]) {
+            const existing = state.grades[baseKey];
+            if (officialDate && existing.date && existing.date !== officialDate) {
+                return { key: datedKey, entry: null };
+            }
+            return { key: baseKey, entry: existing };
+        }
+        return { key: baseKey, entry: null };
+    }
+
+    const getGameGrade = (game) => {
+        if (!game) return { grade: null, awayScore: null, homeScore: null };
+        const found = findGradeEntryForGame(game, game.officialDate);
+        return found.entry || { grade: null, awayScore: null, homeScore: null };
+    };
+
     const getGameLiveStatus = (game) => game ? (state.liveGameStatusMap[getGameKey(game)] || null) : null;
     const isGameLive = (game) => {
         if (!game) return false;
@@ -941,8 +1163,10 @@
                 finalDir = avgVal >= liveLine ? 'Home' : 'Away';
                 primaryDelta = Math.abs(avgVal - liveLine);
             } else {
-                const sheetVals = getActiveModelCatalog()
-                    .map(m => parseNum(getModelVal(game.raw, m.key)))
+                const qualifiedKeys = [...dynamicTiers.t1, ...dynamicTiers.t2, ...dynamicTiers.t3];
+                const candidateKeys = qualifiedKeys.length > 0 ? qualifiedKeys : getActiveModelCatalog().map(m => m.key);
+                const sheetVals = candidateKeys
+                    .map(mKey => parseNum(getModelVal(game.raw, mKey)))
                     .filter(v => v !== null);
                 if (sheetVals.length > 0) {
                     const sheetMean = sheetVals.reduce((a, b) => a + b, 0) / sheetVals.length;
@@ -969,21 +1193,47 @@
         state.games.forEach(g => analyzeGame(g));
     }
 
+    function normalizeDateString(rawDate) {
+        if (!rawDate) return null;
+        const s = String(rawDate).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (mdy) {
+            const m = mdy[1].padStart(2, '0');
+            const d = mdy[2].padStart(2, '0');
+            const y = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
+            return `${y}-${m}-${d}`;
+        }
+        return s;
+    }
+
     function normalizeGradeItem(item, key) {
         if (!item) return item;
         const parts = key ? key.split('__') : [];
-        const roadTeam = item.road || (parts.length >= 1 ? parts[0] : 'Away');
-        const homeTeam = item.home || (parts.length >= 2 ? parts[1] : 'Home');
+        let dateFromKey = null;
+        let roadTeam = item.road || item.roadTeam || item.away || 'Away';
+        let homeTeam = item.home || item.homeTeam || 'Home';
+
+        if (parts.length >= 3 && /^\d{4}-\d{2}-\d{2}$/.test(parts[0])) {
+            dateFromKey = parts[0];
+            if (!item.road && !item.roadTeam && !item.away) roadTeam = parts[1];
+            if (!item.home && !item.homeTeam) homeTeam = parts[2];
+        } else if (parts.length >= 2) {
+            if (!item.road && !item.roadTeam && !item.away) roadTeam = parts[0];
+            if (!item.home && !item.homeTeam) homeTeam = parts[1];
+        }
+
+        const rawOutcome = item.grade || item.outcome || item.result || null;
         return {
-            grade: item.grade || null,
-            awayScore: item.awayScore !== undefined ? item.awayScore : null,
+            grade: rawOutcome ? String(rawOutcome).toUpperCase() : null,
+            awayScore: item.awayScore !== undefined ? item.awayScore : (item.roadScore !== undefined ? item.roadScore : null),
             homeScore: item.homeScore !== undefined ? item.homeScore : null,
             signal: item.signal || 'STRONG BET',
             delta: item.delta !== undefined ? item.delta : (item.signal === 'LEAN' ? 2.5 : 4.5),
             pick: item.pick || `${homeTeam} Spread`,
             home: homeTeam,
             road: roadTeam,
-            date: item.date || null,
+            date: normalizeDateString(item.date || item.gameDate || dateFromKey),
             clv: item.clv !== undefined ? item.clv : null,
             auto: item.auto !== undefined ? item.auto : true
         };
@@ -1005,11 +1255,86 @@
     }
 
     // =========================================================================
-    // 5. FIREBASE CLOUD SYNC (PURE BACKGROUND)
+    // 5. FIREBASE CLOUD SYNC + AUTHENTICATION + RESILIENT LOCAL MIRROR
     // =========================================================================
+    function hydrateFromCloudMirror() {
+        try {
+            const raw = localStorage.getItem(CLOUD_MIRROR_STORAGE_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.grades && typeof parsed.grades === 'object') {
+                const cleanGrades = {};
+                Object.entries(parsed.grades).forEach(([k, item]) => {
+                    const norm = normalizeGradeItem(item, k);
+                    if (norm && norm.grade) cleanGrades[k] = norm;
+                });
+                state.grades = { ...cleanGrades, ...state.grades };
+            }
+            if (parsed && parsed.modelGameLogs && typeof parsed.modelGameLogs === 'object') {
+                state.modelGameLogs = { ...parsed.modelGameLogs, ...state.modelGameLogs };
+            }
+            if (parsed && parsed.lineSnapshots && typeof parsed.lineSnapshots === 'object') {
+                state.lineSnapshots = { ...parsed.lineSnapshots, ...state.lineSnapshots };
+            }
+        } catch (e) {}
+    }
+
+    function persistToCloudMirror() {
+        try {
+            localStorage.setItem(CLOUD_MIRROR_STORAGE_KEY, JSON.stringify({
+                grades: state.grades,
+                modelGameLogs: state.modelGameLogs,
+                lineSnapshots: state.lineSnapshots,
+                cachedAt: Date.now()
+            }));
+        } catch (e) {}
+    }
+
+    function attachFirestoreListener(db) {
+        if (firestoreListenerAttached || !db) return;
+        firestoreListenerAttached = true;
+
+        db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
+            state.isCloudLoaded = true;
+            state.hasReceivedCloudSnapshot = true;
+            state.cloudStatus = 'Cloud Synced';
+
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.grades && typeof data.grades === 'object') {
+                    const cleanGrades = {};
+                    Object.entries(data.grades).forEach(([k, raw]) => {
+                        const norm = normalizeGradeItem(raw, k);
+                        if (norm && norm.grade) cleanGrades[k] = norm;
+                    });
+                    state.grades = { ...cleanGrades, ...state.grades };
+                }
+                if (data && data.modelGameLogs && typeof data.modelGameLogs === 'object') {
+                    state.modelGameLogs = { ...data.modelGameLogs, ...state.modelGameLogs };
+                    reanalyzeAllGames();
+                }
+                if (data && data.lineSnapshots && typeof data.lineSnapshots === 'object') {
+                    state.lineSnapshots = { ...data.lineSnapshots, ...state.lineSnapshots };
+                }
+                persistToCloudMirror();
+                renderApp();
+            }
+        }, err => {
+            state.isCloudLoaded = true;
+            const code = err && err.code ? err.code : '';
+            state.cloudStatus = code === 'permission-denied'
+                ? 'Cloud Read Restricted (Check Firestore Rules)'
+                : 'Offline / Cached Mode';
+            renderApp();
+        });
+    }
+
     function initFirebase() {
+        hydrateFromCloudMirror();
+
         if (typeof firebase === 'undefined') {
             state.isCloudLoaded = true;
+            state.cloudStatus = 'Cached Mode';
             return;
         }
         try {
@@ -1017,41 +1342,26 @@
                 firebase.initializeApp(customFirebaseConfig);
             }
             const db = firebase.firestore();
-            try {
-                if (typeof firebase.auth === 'function') {
-                    firebase.auth().signInAnonymously().catch(() => {});
-                }
-            } catch (e) {}
 
-            db.collection('nba_tracker_shared').doc('main').onSnapshot(doc => {
-                state.isCloudLoaded = true;
-                if (doc.exists) {
-                    const data = doc.data();
-                    if (data && data.grades && typeof data.grades === 'object') {
-                        const cleanGrades = {};
-                        Object.entries(data.grades).forEach(([k, raw]) => {
-                            if (raw && raw.grade) cleanGrades[k] = normalizeGradeItem(raw, k);
-                        });
-                        state.grades = cleanGrades;
-                    }
-                    if (data && data.modelGameLogs && typeof data.modelGameLogs === 'object') {
-                        state.modelGameLogs = { ...data.modelGameLogs, ...state.modelGameLogs };
-                        reanalyzeAllGames();
-                    }
-                    if (data && data.lineSnapshots && typeof data.lineSnapshots === 'object') {
-                        state.lineSnapshots = { ...data.lineSnapshots, ...state.lineSnapshots };
-                    }
-                    renderApp();
-                }
-            }, () => {
-                state.isCloudLoaded = true;
-            });
+            if (typeof firebase.auth === 'function') {
+                firebase.auth().signInAnonymously()
+                    .then(() => {
+                        attachFirestoreListener(db);
+                    })
+                    .catch(() => {
+                        attachFirestoreListener(db);
+                    });
+            } else {
+                attachFirestoreListener(db);
+            }
         } catch (e) {
             state.isCloudLoaded = true;
+            state.cloudStatus = 'Cached Mode';
         }
     }
 
     async function saveGradesToCloud() {
+        persistToCloudMirror();
         if (!state.isCloudLoaded || typeof firebase === 'undefined') return;
         if (firebase.apps && firebase.apps.length > 0) {
             try {
@@ -1062,6 +1372,7 @@
                     lineSnapshots: state.lineSnapshots,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
+                state.cloudStatus = 'Cloud Synced';
             } catch (e) {}
         }
     }
@@ -1083,331 +1394,346 @@
 
     async function fetchSheetData() {
         state.loading = true;
+        state.loadError = null;
         renderApp();
 
-        const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
-        const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
-        const candidateUrls = [
-            gvizUrl,
-            exportUrl,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(gvizUrl)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(gvizUrl)}`,
-            `https://corsproxy.io/?url=${encodeURIComponent(gvizUrl)}`
-        ];
+        try {
+            const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+            const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+            const candidateUrls = [
+                gvizUrl,
+                exportUrl,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(gvizUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(gvizUrl)}`,
+                `https://corsproxy.io/?url=${encodeURIComponent(gvizUrl)}`
+            ];
 
-        let csvText = null;
-        for (const url of candidateUrls) {
-            try {
-                const res = await fetch(url);
-                if (res && res.ok) {
-                    const txt = await res.text();
-                    if (txt && (txt.includes('road') || txt.includes('line') || txt.includes('home'))) {
-                        csvText = txt;
-                        break;
+            let csvText = null;
+            for (const url of candidateUrls) {
+                try {
+                    const res = await fetch(url);
+                    if (res && res.ok) {
+                        const txt = await res.text();
+                        if (txt && (txt.includes('road') || txt.includes('line') || txt.includes('home'))) {
+                            csvText = txt;
+                            break;
+                        }
                     }
-                }
-            } catch (e) {}
-        }
+                } catch (e) {}
+            }
 
-        if (!csvText) {
+            if (!csvText) {
+                state.loading = false;
+                state.loadError = 'Unable to reach Google Sheet feed. Please check your internet connection and click Retry Sync Sheet.';
+                renderApp();
+                return;
+            }
+
+            const matrix = parseCSV(csvText);
+            state.sheetDetectedDate = null;
+            for (let i = 0; i < Math.min(8, matrix.length); i++) {
+                const rowStr = matrix[i].join(' ');
+                const matchMDY = rowStr.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/);
+                if (matchMDY) {
+                    const month = matchMDY[1].padStart(2, '0');
+                    const day = matchMDY[2].padStart(2, '0');
+                    let year = matchMDY[3];
+                    if (year.length === 2) year = '20' + year;
+                    state.sheetDetectedDate = `${year}${month}${day}`;
+                    break;
+                }
+            }
+
+            let headerIdx = 0;
+            for (let i = 0; i < Math.min(15, matrix.length); i++) {
+                const lowerCells = matrix[i].map(c => c.toLowerCase());
+                if (lowerCells.includes('line') || lowerCells.includes('home') || lowerCells.includes('road')) {
+                    headerIdx = i;
+                    break;
+                }
+            }
+
+            const headers = matrix[headerIdx] || [];
+            const dataRows = [];
+            for (let i = headerIdx + 1; i < matrix.length; i++) {
+                const rowVals = matrix[i];
+                if (!rowVals || rowVals.length === 0) continue;
+                const obj = {};
+                headers.forEach((h, idx) => {
+                    if (h) obj[String(h).trim()] = rowVals[idx] !== undefined ? rowVals[idx] : '';
+                });
+                const hName = obj.home || obj.Home || obj.hometeam;
+                if (hName && hName.toLowerCase() !== 'home') {
+                    dataRows.push(obj);
+                }
+            }
+
+            buildSheetModelCatalog(headers, dataRows);
+
+            state.games = dataRows.map((r, idx) => {
+                const home = r.home || r.Home || r.hometeam || 'Home';
+                const road = r.road || r.Road || r.visitor || r.Visitor || r.away || r.Away || 'Away';
+                const neutral = parseNum(r.neutral) !== null ? parseNum(r.neutral) : 0;
+                const gameObj = {
+                    id: idx,
+                    home,
+                    road,
+                    neutral,
+                    raw: r,
+                    liveLine: null,
+                    espnLine: null,
+                    lineSource: 'Sheet',
+                    tipOffTimeMs: 0,
+                    tipOffFormatted: null,
+                    officialDate: null,
+                    showDeepDive: true,
+                    deepDiveTab: 'ratings',
+                    h2hSeries: null,
+                    homeRecord: null,
+                    awayRecord: null,
+                    homeHomeRecord: null,
+                    awayRoadRecord: null,
+                    result: null
+                };
+                analyzeGame(gameObj);
+                if (gameObj.liveLine !== null) {
+                    updateLineSnapshot(gameObj, gameObj.liveLine, 'Sheet');
+                }
+                return gameObj;
+            });
+
             state.loading = false;
             renderApp();
-            return;
+            fetchLiveScores();
+        } catch (err) {
+            state.loading = false;
+            state.loadError = err && err.message ? err.message : 'Error parsing Google Sheet data.';
+            renderApp();
         }
-
-        const matrix = parseCSV(csvText);
-        state.sheetDetectedDate = null;
-        for (let i = 0; i < Math.min(8, matrix.length); i++) {
-            const rowStr = matrix[i].join(' ');
-            const matchMDY = rowStr.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/);
-            if (matchMDY) {
-                const month = matchMDY[1].padStart(2, '0');
-                const day = matchMDY[2].padStart(2, '0');
-                let year = matchMDY[3];
-                if (year.length === 2) year = '20' + year;
-                state.sheetDetectedDate = `${year}${month}${day}`;
-                break;
-            }
-        }
-
-        let headerIdx = 0;
-        for (let i = 0; i < Math.min(15, matrix.length); i++) {
-            const lowerCells = matrix[i].map(c => c.toLowerCase());
-            if (lowerCells.includes('line') || lowerCells.includes('home') || lowerCells.includes('road')) {
-                headerIdx = i;
-                break;
-            }
-        }
-
-        const headers = matrix[headerIdx] || [];
-        const dataRows = [];
-        for (let i = headerIdx + 1; i < matrix.length; i++) {
-            const rowVals = matrix[i];
-            if (!rowVals || rowVals.length === 0) continue;
-            const obj = {};
-            headers.forEach((h, idx) => {
-                if (h) obj[String(h).trim()] = rowVals[idx] !== undefined ? rowVals[idx] : '';
-            });
-            const hName = obj.home || obj.Home || obj.hometeam;
-            if (hName && hName.toLowerCase() !== 'home') {
-                dataRows.push(obj);
-            }
-        }
-
-        // Build the active prediction model list strictly from approved models present in the Google Sheet
-        buildSheetModelCatalog(headers, dataRows);
-
-        state.games = dataRows.map((r, idx) => {
-            const home = r.home || r.Home || r.hometeam || 'Home';
-            const road = r.road || r.Road || r.visitor || r.Visitor || r.away || r.Away || 'Away';
-            const neutral = parseNum(r.neutral) !== null ? parseNum(r.neutral) : 0;
-            const gameObj = {
-                id: idx,
-                home,
-                road,
-                neutral,
-                raw: r,
-                liveLine: null,
-                espnLine: null,
-                lineSource: 'Sheet',
-                tipOffTimeMs: 0,
-                tipOffFormatted: null,
-                officialDate: null,
-                showDeepDive: true,
-                deepDiveTab: 'ratings',
-                h2hSeries: null,
-                homeRecord: null,
-                awayRecord: null,
-                homeHomeRecord: null,
-                awayRoadRecord: null,
-                result: null
-            };
-            analyzeGame(gameObj);
-            if (gameObj.liveLine !== null) {
-                updateLineSnapshot(gameObj, gameObj.liveLine, 'Sheet');
-            }
-            return gameObj;
-        });
-
-        state.loading = false;
-        renderApp();
-        fetchLiveScores();
     }
 
     async function fetchLiveScores() {
         if (!state.games || state.games.length === 0) return;
         state.isPullingScores = true;
 
-        const formatYMD = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-        const now = new Date();
-        const datesToQuery = new Set(['live_now', formatYMD(now)]);
-        for (let i = 1; i <= 4; i++) {
-            const p = new Date(now);
-            p.setDate(p.getDate() - i);
-            datesToQuery.add(formatYMD(p));
-        }
-        const tmr = new Date(now);
-        tmr.setDate(tmr.getDate() + 1);
-        datesToQuery.add(formatYMD(tmr));
-        if (state.sheetDetectedDate) datesToQuery.add(state.sheetDetectedDate);
-
-        const requestUrls = [];
-        datesToQuery.forEach(dStr => {
-            if (dStr === 'live_now') requestUrls.push('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=100');
-            else requestUrls.push(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=100&dates=${dStr}`);
-        });
-
-        const eventsMap = new Map();
-        for (const url of requestUrls) {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            try {
-                let res = await fetch(url).catch(() => null);
-                if (!res || !res.ok) res = await fetch(proxyUrl).catch(() => null);
-                if (res && res.ok) {
-                    const json = await res.json();
-                    if (json && Array.isArray(json.events)) {
-                        json.events.forEach(ev => {
-                            if (ev && ev.id) {
-                                if (!eventsMap.has(ev.id)) eventsMap.set(ev.id, ev);
-                                else {
-                                    const exState = eventsMap.get(ev.id).status?.type?.state;
-                                    const nwState = ev.status?.type?.state;
-                                    if (nwState === 'post' || (nwState === 'in' && exState === 'pre')) eventsMap.set(ev.id, ev);
-                                }
-                            }
-                        });
-                    }
-                }
-            } catch (e) {}
-        }
-
-        const allEvents = Array.from(eventsMap.values());
-        if (allEvents.length === 0) {
-            state.isPullingScores = false;
-            return;
-        }
-
-        let autoGradedCount = 0;
-        let modelLogsUpdated = false;
-        let datesReconciledCount = 0;
-        let lineSnapshotsUpdated = false;
-
-        const parseCompScore = (comp) => {
-            if (!comp || comp.score === undefined || comp.score === null || comp.score === '') return null;
-            const s = parseInt(comp.score, 10);
-            return isNaN(s) ? null : s;
-        };
-
-        state.games.forEach(g => {
-            let matchedHomeComp = null, matchedRoadComp = null, matchedEvent = null;
-            for (const ev of allEvents) {
-                const comps = ev.competitions?.[0]?.competitors;
-                if (!comps || comps.length < 2) continue;
-                const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
-                const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
-                if (teamMatches(g.home, homeComp) && teamMatches(g.road, awayComp)) {
-                    matchedHomeComp = homeComp; matchedRoadComp = awayComp; matchedEvent = ev; break;
-                }
-                if (teamMatches(g.home, awayComp) && teamMatches(g.road, homeComp)) {
-                    matchedHomeComp = awayComp; matchedRoadComp = homeComp; matchedEvent = ev; break;
-                }
+        try {
+            const formatYMD = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+            const now = new Date();
+            const datesToQuery = new Set(['live_now', formatYMD(now)]);
+            for (let i = 1; i <= 4; i++) {
+                const p = new Date(now);
+                p.setDate(p.getDate() - i);
+                datesToQuery.add(formatYMD(p));
             }
+            const tmr = new Date(now);
+            tmr.setDate(tmr.getDate() + 1);
+            datesToQuery.add(formatYMD(tmr));
+            if (state.sheetDetectedDate) datesToQuery.add(state.sheetDetectedDate);
 
-            if (matchedEvent && matchedHomeComp && matchedRoadComp) {
-                let officialGameDate = null;
-                if (matchedEvent.date) {
-                    const dObj = new Date(matchedEvent.date);
-                    if (!isNaN(dObj.getTime())) {
-                        g.tipOffTimeMs = dObj.getTime();
-                        g.tipOffFormatted = dObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                    }
-                    officialGameDate = getGameDateIso(matchedEvent.date);
-                }
-                if (!officialGameDate && state.sheetDetectedDate) {
-                    officialGameDate = `${state.sheetDetectedDate.slice(0,4)}-${state.sheetDetectedDate.slice(4,6)}-${state.sheetDetectedDate.slice(6,8)}`;
-                }
-                if (!officialGameDate) officialGameDate = getTodayIso();
-                g.officialDate = officialGameDate;
+            const requestUrls = [];
+            datesToQuery.forEach(dStr => {
+                if (dStr === 'live_now') requestUrls.push('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=100');
+                else requestUrls.push(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?limit=100&dates=${dStr}`);
+            });
 
-                const comps = matchedEvent.competitions?.[0];
-                if (comps?.series?.summary) g.h2hSeries = comps.series.summary;
-
-                if (Array.isArray(matchedHomeComp?.records)) {
-                    const tr = matchedHomeComp.records.find(r => r.type === 'total');
-                    const hr = matchedHomeComp.records.find(r => r.type === 'home');
-                    if (tr?.summary) g.homeRecord = tr.summary;
-                    if (hr?.summary) g.homeHomeRecord = hr.summary;
-                }
-                if (Array.isArray(matchedRoadComp?.records)) {
-                    const tr = matchedRoadComp.records.find(r => r.type === 'total');
-                    const rr = matchedRoadComp.records.find(r => r.type === 'road');
-                    if (tr?.summary) g.awayRecord = tr.summary;
-                    if (rr?.summary) g.awayRoadRecord = rr.summary;
-                }
-
-                const statusType = matchedEvent.status?.type || comps?.status?.type || {};
-                const stateStr = String(statusType.state || matchedEvent.status?.state || '').toLowerCase();
-                const statusName = String(statusType.name || '').toUpperCase();
-                const statusDetail = String(statusType.detail || statusType.description || '');
-                const statusDetailLower = statusDetail.toLowerCase();
-                const period = matchedEvent.status?.period || 0;
-
-                const isPre = stateStr === 'pre' || statusName.includes('SCHEDULED') || statusDetailLower.includes('scheduled') || (period === 0 && !statusName.includes('FINAL'));
-                const isCompleted = !isPre && (statusType.completed === true || matchedEvent.status?.completed === true || stateStr === 'post' || statusName.includes('FINAL') || statusDetailLower.startsWith('final') || statusDetailLower === 'final');
-                const isLive = !isPre && !isCompleted && (stateStr === 'in' || statusName.includes('IN_PROGRESS') || statusName.includes('HALFTIME') || period > 0);
-
-                const awayScore = parseCompScore(matchedRoadComp);
-                const homeScore = parseCompScore(matchedHomeComp);
-                const key = getGameKey(g);
-
-                state.liveGameStatusMap[key] = {
-                    awayScore: isPre ? null : awayScore,
-                    homeScore: isPre ? null : homeScore,
-                    detail: isCompleted ? 'Final' : (statusDetail || (isLive ? 'In Progress' : 'Scheduled')),
-                    displayClock: isCompleted ? '0:00' : (matchedEvent.status?.displayClock || ''),
-                    clock: isCompleted ? 0 : matchedEvent.status?.clock,
-                    period,
-                    startTime: matchedEvent.date ? new Date(matchedEvent.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null,
-                    isPre, isLive, isCompleted
-                };
-
-                const odds = comps?.odds?.[0];
-                if (odds) {
-                    let parsedSpread = null;
-                    if (typeof odds.spread === 'number' && !isNaN(odds.spread)) parsedSpread = -odds.spread;
-                    else if (odds.details) {
-                        const details = String(odds.details).trim();
-                        if (details.toUpperCase() === 'EVEN' || details.toUpperCase() === 'PK') parsedSpread = 0;
-                        else {
-                            const m = details.match(/([A-Za-z\s]+)\s+([+-]?\d+(?:\.\d+)?)/);
-                            if (m) {
-                                const teamStr = m[1].trim();
-                                const numVal = parseFloat(m[2]);
-                                parsedSpread = teamMatches(g.home, { team: { displayName: teamStr, abbreviation: teamStr } }) ? -numVal : numVal;
-                            }
+            const eventsMap = new Map();
+            for (const url of requestUrls) {
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                try {
+                    let res = await fetch(url).catch(() => null);
+                    if (!res || !res.ok) res = await fetch(proxyUrl).catch(() => null);
+                    if (res && res.ok) {
+                        const json = await res.json();
+                        if (json && Array.isArray(json.events)) {
+                            json.events.forEach(ev => {
+                                if (ev && ev.id) {
+                                    if (!eventsMap.has(ev.id)) eventsMap.set(ev.id, ev);
+                                    else {
+                                        const exState = eventsMap.get(ev.id).status?.type?.state;
+                                        const nwState = ev.status?.type?.state;
+                                        if (nwState === 'post' || (nwState === 'in' && exState === 'pre')) eventsMap.set(ev.id, ev);
+                                    }
+                                }
+                            });
                         }
                     }
-                    if (parsedSpread !== null && !isNaN(parsedSpread)) {
-                        g.espnLine = parsedSpread;
-                        g.lineSource = 'ESPN';
-                        analyzeGame(g);
-                        if (updateLineSnapshot(g, parsedSpread, 'ESPN')) {
+                } catch (e) {}
+            }
+
+            const allEvents = Array.from(eventsMap.values());
+            if (allEvents.length === 0) {
+                state.isPullingScores = false;
+                return;
+            }
+
+            let autoGradedCount = 0;
+            let modelLogsUpdated = false;
+            let datesReconciledCount = 0;
+            let lineSnapshotsUpdated = false;
+
+            const parseCompScore = (comp) => {
+                if (!comp || comp.score === undefined || comp.score === null || comp.score === '') return null;
+                const s = parseInt(comp.score, 10);
+                return isNaN(s) ? null : s;
+            };
+
+            state.games.forEach(g => {
+                let matchedHomeComp = null, matchedRoadComp = null, matchedEvent = null;
+                for (const ev of allEvents) {
+                    const comps = ev.competitions?.[0]?.competitors;
+                    if (!comps || comps.length < 2) continue;
+                    const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
+                    const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
+                    if (teamMatches(g.home, homeComp) && teamMatches(g.road, awayComp)) {
+                        matchedHomeComp = homeComp; matchedRoadComp = awayComp; matchedEvent = ev; break;
+                    }
+                    if (teamMatches(g.home, awayComp) && teamMatches(g.road, homeComp)) {
+                        matchedHomeComp = awayComp; matchedRoadComp = homeComp; matchedEvent = ev; break;
+                    }
+                }
+
+                if (matchedEvent && matchedHomeComp && matchedRoadComp) {
+                    let officialGameDate = null;
+                    if (matchedEvent.date) {
+                        const dObj = new Date(matchedEvent.date);
+                        if (!isNaN(dObj.getTime())) {
+                            g.tipOffTimeMs = dObj.getTime();
+                            g.tipOffFormatted = dObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        }
+                        officialGameDate = getGameDateIso(matchedEvent.date);
+                    }
+                    if (!officialGameDate && state.sheetDetectedDate) {
+                        officialGameDate = `${state.sheetDetectedDate.slice(0,4)}-${state.sheetDetectedDate.slice(4,6)}-${state.sheetDetectedDate.slice(6,8)}`;
+                    }
+                    if (!officialGameDate) officialGameDate = getTodayIso();
+                    g.officialDate = officialGameDate;
+
+                    const comps = matchedEvent.competitions?.[0];
+                    if (comps?.series?.summary) g.h2hSeries = comps.series.summary;
+
+                    if (Array.isArray(matchedHomeComp?.records)) {
+                        const tr = matchedHomeComp.records.find(r => r.type === 'total');
+                        const hr = matchedHomeComp.records.find(r => r.type === 'home');
+                        if (tr?.summary) g.homeRecord = tr.summary;
+                        if (hr?.summary) g.homeHomeRecord = hr.summary;
+                    }
+                    if (Array.isArray(matchedRoadComp?.records)) {
+                        const tr = matchedRoadComp.records.find(r => r.type === 'total');
+                        const rr = matchedRoadComp.records.find(r => r.type === 'road');
+                        if (tr?.summary) g.awayRecord = tr.summary;
+                        if (rr?.summary) g.awayRoadRecord = rr.summary;
+                    }
+
+                    const statusType = matchedEvent.status?.type || comps?.status?.type || {};
+                    const stateStr = String(statusType.state || matchedEvent.status?.state || '').toLowerCase();
+                    const statusName = String(statusType.name || '').toUpperCase();
+                    const statusDetail = String(statusType.detail || statusType.description || '');
+                    const statusDetailLower = statusDetail.toLowerCase();
+                    const period = matchedEvent.status?.period || 0;
+
+                    const isPre = stateStr === 'pre' || statusName.includes('SCHEDULED') || statusDetailLower.includes('scheduled') || (period === 0 && !statusName.includes('FINAL'));
+                    const isCompleted = !isPre && (statusType.completed === true || matchedEvent.status?.completed === true || stateStr === 'post' || statusName.includes('FINAL') || statusDetailLower.startsWith('final') || statusDetailLower === 'final');
+                    const isLive = !isPre && !isCompleted && (stateStr === 'in' || statusName.includes('IN_PROGRESS') || statusName.includes('HALFTIME') || period > 0);
+
+                    const awayScore = parseCompScore(matchedRoadComp);
+                    const homeScore = parseCompScore(matchedHomeComp);
+                    const key = getGameKey(g);
+
+                    state.liveGameStatusMap[key] = {
+                        awayScore: isPre ? null : awayScore,
+                        homeScore: isPre ? null : homeScore,
+                        detail: isCompleted ? 'Final' : (statusDetail || (isLive ? 'In Progress' : 'Scheduled')),
+                        displayClock: isCompleted ? '0:00' : (matchedEvent.status?.displayClock || ''),
+                        clock: isCompleted ? 0 : matchedEvent.status?.clock,
+                        period,
+                        startTime: matchedEvent.date ? new Date(matchedEvent.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null,
+                        isPre, isLive, isCompleted
+                    };
+
+                    const odds = comps?.odds?.[0];
+                    if (odds) {
+                        let parsedSpread = null;
+                        if (typeof odds.spread === 'number' && !isNaN(odds.spread)) parsedSpread = -odds.spread;
+                        else if (odds.details) {
+                            const details = String(odds.details).trim();
+                            if (details.toUpperCase() === 'EVEN' || details.toUpperCase() === 'PK') parsedSpread = 0;
+                            else {
+                                const m = details.match(/([A-Za-z\s]+)\s+([+-]?\d+(?:\.\d+)?)/);
+                                if (m) {
+                                    const teamStr = m[1].trim();
+                                    const numVal = parseFloat(m[2]);
+                                    parsedSpread = teamMatches(g.home, { team: { displayName: teamStr, abbreviation: teamStr } }) ? -numVal : numVal;
+                                }
+                            }
+                        }
+                        if (parsedSpread !== null && !isNaN(parsedSpread)) {
+                            g.espnLine = parsedSpread;
+                            g.lineSource = 'ESPN';
+                            analyzeGame(g);
+                            if (updateLineSnapshot(g, parsedSpread, 'ESPN')) {
+                                lineSnapshotsUpdated = true;
+                            }
+                        }
+                    } else if (g.liveLine !== null) {
+                        if (updateLineSnapshot(g, g.liveLine, g.lineSource || 'Sheet')) {
                             lineSnapshotsUpdated = true;
                         }
                     }
-                } else if (g.liveLine !== null) {
-                    if (updateLineSnapshot(g, g.liveLine, g.lineSource || 'Sheet')) {
-                        lineSnapshotsUpdated = true;
-                    }
-                }
 
-                if (isCompleted && awayScore !== null && homeScore !== null && g.result) {
-                    const actualHomeMargin = homeScore - awayScore;
-                    if (recordDailyModelOutcomes(g, actualHomeMargin, officialGameDate)) {
-                        modelLogsUpdated = true;
-                        reanalyzeAllGames();
-                    }
+                    if (isCompleted && awayScore !== null && homeScore !== null && g.result) {
+                        const actualHomeMargin = homeScore - awayScore;
+                        if (recordDailyModelOutcomes(g, actualHomeMargin, officialGameDate)) {
+                            modelLogsUpdated = true;
+                            reanalyzeAllGames();
+                        }
 
-                    const clvInfo = calculateCLVMetrics(g);
-                    const current = state.grades[key] || { grade: null, awayScore: null, homeScore: null };
-                    current.awayScore = awayScore;
-                    current.homeScore = homeScore;
-                    current.signal = g.result.finalAction;
-                    current.delta = g.result.delta;
-                    current.pick = `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`;
-                    current.home = g.home;
-                    current.road = g.road;
-                    current.date = officialGameDate;
-                    if (clvInfo) current.clv = clvInfo.clvPts;
-                    computeScoreGrade(g, current);
-                    state.grades[key] = { ...current };
-                    autoGradedCount++;
-                }
-            }
-        });
-
-        allEvents.forEach(ev => {
-            const comps = ev.competitions?.[0]?.competitors;
-            if (!comps || comps.length < 2 || !ev.date) return;
-            const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
-            const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
-            const officialDate = getGameDateIso(ev.date);
-            if (!officialDate) return;
-
-            Object.keys(state.grades).forEach(k => {
-                const item = state.grades[k];
-                if (item && teamMatches(item.home, homeComp) && teamMatches(item.road, awayComp)) {
-                    if (item.date !== officialDate) {
-                        item.date = officialDate;
-                        datesReconciledCount++;
+                        const clvInfo = calculateCLVMetrics(g);
+                        const found = findGradeEntryForGame(g, officialGameDate);
+                        const current = found.entry ? { ...found.entry } : { grade: null, awayScore: null, homeScore: null };
+                        current.awayScore = awayScore;
+                        current.homeScore = homeScore;
+                        current.signal = g.result.finalAction;
+                        current.delta = g.result.delta;
+                        current.pick = `${g.result.targetTeam} (${formatBetSpread(g.liveLine, g.result.finalDir)})`;
+                        current.home = g.home;
+                        current.road = g.road;
+                        current.date = officialGameDate;
+                        if (clvInfo) current.clv = clvInfo.clvPts;
+                        computeScoreGrade(g, current);
+                        state.grades[found.key] = { ...current };
+                        autoGradedCount++;
                     }
                 }
             });
-        });
 
-        if (autoGradedCount > 0 || modelLogsUpdated || datesReconciledCount > 0 || lineSnapshotsUpdated) saveGradesToCloud();
-        state.isPullingScores = false;
-        renderApp();
+            allEvents.forEach(ev => {
+                const comps = ev.competitions?.[0]?.competitors;
+                if (!comps || comps.length < 2 || !ev.date) return;
+                const homeComp = comps.find(c => c.homeAway === 'home') || comps[0];
+                const awayComp = comps.find(c => c.homeAway === 'away') || comps[1];
+                const officialDate = getGameDateIso(ev.date);
+                if (!officialDate) return;
+
+                Object.keys(state.grades).forEach(k => {
+                    const item = state.grades[k];
+                    if (item && teamMatches(item.home, homeComp) && teamMatches(item.road, awayComp)) {
+                        if (item.date && item.date !== officialDate) {
+                            const diffDays = Math.abs((new Date(officialDate) - new Date(item.date)) / 86400000);
+                            if (diffDays <= 1.5) {
+                                item.date = officialDate;
+                                datesReconciledCount++;
+                            }
+                        }
+                    }
+                });
+            });
+
+            if (autoGradedCount > 0 || modelLogsUpdated || datesReconciledCount > 0 || lineSnapshotsUpdated) saveGradesToCloud();
+        } catch (err) {
+        } finally {
+            state.isPullingScores = false;
+            renderApp();
+        }
     }
 
     // =========================================================================
@@ -1437,10 +1763,11 @@
 
     function isDateInTimeframe(dateStr, tf) {
         if (tf === 'season') return true;
-        if (!dateStr) return tf === 'today';
-        if (tf === 'today') return dateStr === getTodayIso();
-        if (tf === 'yesterday') return dateStr === getYesterdayIso();
-        const parts = String(dateStr).split('-');
+        const normDate = normalizeDateString(dateStr);
+        if (!normDate) return tf === 'today';
+        if (tf === 'today') return normDate === getTodayIso();
+        if (tf === 'yesterday') return normDate === getYesterdayIso();
+        const parts = String(normDate).split('-');
         if (parts.length < 3) return tf === 'season';
         const [y, m, d] = parts.map(Number);
         const itemDate = new Date(y, m - 1, d);
@@ -1474,7 +1801,174 @@
     }
 
     // =========================================================================
-    // 8. DOM RENDERING ENGINE
+    // 8. README.md MARKDOWN RENDERER & MODAL
+    // =========================================================================
+    function formatInlineMarkdown(rawText) {
+        let s = esc(rawText);
+        // Inline code
+        s = s.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-orange-300 font-mono-num text-[11px]">$1</code>');
+        // Bold
+        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+        // Italic
+        s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em class="text-slate-200 italic">$2</em>');
+        return s;
+    }
+
+    function renderMarkdownToHtml(mdText) {
+        const lines = String(mdText || '').replace(/\r\n/g, '\n').split('\n');
+        let html = '';
+        let inList = false;
+        let tableLines = [];
+
+        const flushList = () => {
+            if (inList) {
+                html += '</ul>';
+                inList = false;
+            }
+        };
+
+        const flushTable = () => {
+            if (tableLines.length === 0) return;
+            const rows = tableLines
+                .map(line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim()))
+                .filter(cells => cells.length > 0);
+            if (rows.length >= 2) {
+                const headerCells = rows[0];
+                const bodyRows = rows.slice(1).filter(r => !r.every(c => /^[:-\s]+$/.test(c)));
+                html += `
+                <div class="overflow-x-auto my-3 rounded-lg border border-slate-800">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                ${headerCells.map(h => `<th class="py-2 px-3">${formatInlineMarkdown(h)}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/70">
+                            ${bodyRows.map(r => `
+                                <tr class="hover:bg-slate-800/30">
+                                    ${r.map(c => `<td class="py-2 px-3 text-slate-300">${formatInlineMarkdown(c)}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            }
+            tableLines = [];
+        };
+
+        for (let i = 0; i < lines.length; i++) {
+            const rawLine = lines[i];
+            const trimmed = rawLine.trim();
+
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                flushList();
+                tableLines.push(trimmed);
+                continue;
+            } else {
+                flushTable();
+            }
+
+            if (trimmed === '') {
+                flushList();
+                continue;
+            }
+
+            if (/^---+$/.test(trimmed)) {
+                flushList();
+                html += '<hr class="border-slate-800 my-4">';
+                continue;
+            }
+
+            if (trimmed.startsWith('### ')) {
+                flushList();
+                html += `<h3 class="text-xs sm:text-sm font-extrabold text-orange-400 mt-4 mb-1.5 tracking-tight">${formatInlineMarkdown(trimmed.slice(4))}</h3>`;
+                continue;
+            }
+
+            if (trimmed.startsWith('## ')) {
+                flushList();
+                html += `<h2 class="text-sm sm:text-base font-extrabold text-white mt-5 mb-2 pb-1 border-b border-slate-800 tracking-tight">${formatInlineMarkdown(trimmed.slice(3))}</h2>`;
+                continue;
+            }
+
+            if (trimmed.startsWith('# ')) {
+                flushList();
+                html += `<h1 class="text-base sm:text-lg font-black text-white mb-2 tracking-tight">${formatInlineMarkdown(trimmed.slice(2))}</h1>`;
+                continue;
+            }
+
+            const bulletMatch = rawLine.match(/^(\s*)[-*]\s+(.*)$/);
+            if (bulletMatch) {
+                if (!inList) {
+                    html += '<ul class="space-y-1.5 my-2 pl-4 list-disc marker:text-orange-500 text-xs text-slate-300 leading-relaxed">';
+                    inList = true;
+                }
+                const isNested = bulletMatch[1].length >= 2;
+                html += `<li class="${isNested ? 'ml-4 text-slate-400' : ''}">${formatInlineMarkdown(bulletMatch[2])}</li>`;
+                continue;
+            }
+
+            flushList();
+            html += `<p class="text-xs text-slate-300 leading-relaxed my-2">${formatInlineMarkdown(trimmed)}</p>`;
+        }
+
+        flushList();
+        flushTable();
+        return html;
+    }
+
+    function renderReadmeModal() {
+        const root = document.getElementById('readme-modal-root');
+        if (!root) return;
+        if (!state.showReadmeModal) {
+            root.innerHTML = '';
+            return;
+        }
+
+        root.innerHTML = `
+        <div onclick="window.__nbaActions.closeReadmeModal(event)"
+             class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+            <div onclick="event.stopPropagation()"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="readme-modal-title"
+                 class="w-full max-w-2xl max-h-[85vh] bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                
+                <!-- Modal Header -->
+                <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">📘</span>
+                        <span id="readme-modal-title" class="text-xs sm:text-sm font-extrabold text-white tracking-tight font-mono-num">README.md</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">v1.3</span>
+                    </div>
+                    <button type="button"
+                        onclick="window.__nbaActions.closeReadmeModal()"
+                        aria-label="Close README modal"
+                        class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer">
+                        ✕ Close
+                    </button>
+                </div>
+
+                <!-- Scrollable Markdown Body -->
+                <div class="p-4 sm:p-5 overflow-y-auto space-y-1">
+                    ${renderMarkdownToHtml(state.readmeMarkdown)}
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="px-4 py-2.5 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+                    <span>NBA Analyzer &bull; Documentation &amp; Release Notes</span>
+                    <button type="button"
+                        onclick="window.__nbaActions.closeReadmeModal()"
+                        class="px-3 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition cursor-pointer">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================================
+    // 9. DOM RENDERING ENGINE
     // =========================================================================
     function renderHeaderAndTabs(filteredGames) {
         const liveCount = Object.values(state.liveGameStatusMap).filter(s => s && s.isLive && !s.isPre && !s.isCompleted).length;
@@ -1646,18 +2140,21 @@
 
         const renderModelGrid = (keys) => {
             if (!keys || keys.length === 0) {
-                return `<div class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] text-slate-500">No models assigned to this tier from Google Sheet.</div>`;
+                return `<div class="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] text-slate-500">No models currently in this tier.</div>`;
             }
             const colsClass = keys.length <= 3 ? 'grid-cols-3' : (keys.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-5');
             return `
             <div class="grid ${colsClass} gap-2 font-mono-num">
                 ${keys.map(mKey => {
                     const mStat = dynamicTiers.rankedMap[mKey];
+                    const subLabel = mStat
+                        ? (mStat.isNewModel ? `NEW (${mStat.totalPredicted}/${NEW_MODEL_MIN_GAMES} GP)` : `${mStat.winPct.toFixed(1)}% ATS`)
+                        : '';
                     return `
                     <div class="p-2 rounded-lg bg-slate-900 border text-center ${getModelCellClass(getModelVal(g.raw, mKey), g.liveLine)}">
                         <div class="text-[10px] text-slate-400 uppercase font-bold">${formatModelLabel(mKey)}</div>
                         <div class="font-bold text-sm mt-0.5">${formatMetric(getModelVal(g.raw, mKey))}</div>
-                        ${mStat && mStat.decided > 0 ? `<div class="text-[9px] text-slate-400 mt-0.5">${mStat.winPct.toFixed(1)}% ATS</div>` : ''}
+                        ${subLabel ? `<div class="text-[9px] ${mStat?.isNewModel ? 'text-amber-400/90' : 'text-slate-400'} mt-0.5">${subLabel}</div>` : ''}
                     </div>`;
                 }).join('')}
             </div>`;
@@ -1715,13 +2212,13 @@
 
                         <div class="grid grid-cols-3 gap-2.5 pt-2.5 border-t border-white/10 text-xs">
                             ${[
-                                { label: 'TIER 1 (TOP ATS)', t: g.result.t1 },
-                                { label: 'TIER 2 (MID ATS)', t: g.result.t2 },
-                                { label: 'TIER 3 (LOW ATS)', t: g.result.t3 }
+                                { label: 'TIER 1 (≥54%)', t: g.result.t1 },
+                                { label: 'TIER 2 (50-53.99%)', t: g.result.t2 },
+                                { label: 'TIER 3 (≤49.99%)', t: g.result.t3 }
                             ].map(item => `
                                 <div class="bg-slate-950/60 rounded-lg p-2.5 border border-white/5">
                                     <div class="flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-                                        <span>${item.label} (${item.t.total})</span>
+                                        <span>${item.label}</span>
                                         <span class="${getTierBadgeClass(item.t.status)}">${item.t.status}</span>
                                     </div>
                                     <div class="font-bold text-slate-100 mt-1 truncate">${esc(item.t.dir === 'Home' ? g.home : (item.t.dir === 'Away' ? g.road : 'Split'))}</div>
@@ -1817,17 +2314,22 @@
                     </div>` : `
                     <div class="space-y-3 text-xs">
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1.5">Tier 1 Core Models (${dynamicTiers.t1.length} Sheet Models)</div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-orange-400 mb-1.5">Tier 1 Core Models &mdash; &ge;54% ATS (${dynamicTiers.t1.length})</div>
                             ${renderModelGrid(dynamicTiers.t1)}
                         </div>
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1.5">Tier 2 Secondary Models (${dynamicTiers.t2.length} Sheet Models)</div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-sky-400 mb-1.5">Tier 2 Secondary Models &mdash; 50% to 53.99% ATS (${dynamicTiers.t2.length})</div>
                             ${renderModelGrid(dynamicTiers.t2)}
                         </div>
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tier 3 Contrarian Check Models (${dynamicTiers.t3.length} Sheet Models)</div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tier 3 Contrarian Check Models &mdash; &le;49.99% ATS (${dynamicTiers.t3.length})</div>
                             ${renderModelGrid(dynamicTiers.t3)}
                         </div>
+                        ${dynamicTiers.newModels.length > 0 ? `
+                        <div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1.5">New Models &mdash; &lt;25 Games Predicted (${dynamicTiers.newModels.length})</div>
+                            ${renderModelGrid(dynamicTiers.newModels)}
+                        </div>` : ''}
                     </div>`}
                 </div>` : ''}
             </div>
@@ -1866,7 +2368,7 @@
             cardsSection = `
                 <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                     <div class="text-3xl">🔍</div>
-                    <div class="text-sm font-semibold text-slate-300">${state.searchQuery ? `No matchups found matching "${esc(state.searchQuery)}"` : 'No NBA matchups match your filter.'}</div>
+                    <div class="text-sm font-semibold text-slate-300">${state.loadError ? esc(state.loadError) : (state.searchQuery ? `No matchups found matching "${esc(state.searchQuery)}"` : 'No NBA matchups match your filter.')}</div>
                     <p class="text-xs text-slate-500 max-w-sm mx-auto">Filter by city (e.g. Boston), mascot (e.g. Celtics), abbreviation (e.g. BOS), or reset filters.</p>
                     <div class="flex justify-center gap-2 pt-2">
                         <button onclick="window.__nbaActions.resetFilters()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer">Reset Filters</button>
@@ -1934,9 +2436,11 @@
             return `
             <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
                 <div class="text-3xl animate-bounce">🏆</div>
-                <div class="text-sm font-semibold text-slate-300">${state.loading ? 'Loading prediction models from Google Sheet...' : 'No approved prediction model columns detected in the Google Sheet.'}</div>
+                <div class="text-sm font-semibold text-slate-300">${state.loading ? 'Loading prediction models from Google Sheet...' : 'No prediction model columns detected in the Google Sheet.'}</div>
             </div>`;
         }
+
+        const tierSortOrder = (t) => t === 1 ? 1 : (t === 2 ? 2 : (t === 3 ? 3 : 4));
 
         const sortedModels = [...rankedModels].sort((a, b) => {
             if (state.leaderboardSort === 'wins') return b.totalW - a.totalW;
@@ -1945,74 +2449,116 @@
                 const bNet = b.todayW - b.todayL;
                 return bNet !== aNet ? bNet - aNet : b.winPct - a.winPct;
             }
-            if (state.leaderboardSort === 'tier') return a.tier !== b.tier ? a.tier - b.tier : b.winPct - a.winPct;
-            return b.winPct - a.winPct;
+            if (state.leaderboardSort === 'yesterday') {
+                const aNet = a.yesterdayW - a.yesterdayL;
+                const bNet = b.yesterdayW - b.yesterdayL;
+                if (bNet !== aNet) return bNet - aNet;
+                if (b.yesterdayW !== a.yesterdayW) return b.yesterdayW - a.yesterdayW;
+                return b.winPct - a.winPct;
+            }
+            if (state.leaderboardSort === 'twoWeeks') {
+                const aNet = a.twoWeeksW - a.twoWeeksL;
+                const bNet = b.twoWeeksW - b.twoWeeksL;
+                if (bNet !== aNet) return bNet - aNet;
+                if (b.twoWeeksW !== a.twoWeeksW) return b.twoWeeksW - a.twoWeeksW;
+                return b.winPct - a.winPct;
+            }
+            if (state.leaderboardSort === 'tier') {
+                const ta = tierSortOrder(a.tier);
+                const tb = tierSortOrder(b.tier);
+                return ta !== tb ? ta - tb : b.winPct - a.winPct;
+            }
+            return a.rank - b.rank;
         });
 
         const t1Models = rankedModels.filter(m => m.tier === 1);
         const t2Models = rankedModels.filter(m => m.tier === 2);
         const t3Models = rankedModels.filter(m => m.tier === 3);
+        const newModelsList = rankedModels.filter(m => m.tier === 'NEW');
 
         const sortOptions = [
             { id: 'pct', label: 'ATS Win %' },
             { id: 'wins', label: 'Total ATS Wins' },
             { id: 'daily', label: 'Today ATS' },
+            { id: 'yesterday', label: 'Yesterday ATS' },
+            { id: 'twoWeeks', label: 'Last 2 Weeks' },
             { id: 'tier', label: 'Active Tier' }
         ];
 
         return `
         <div class="space-y-4">
-            <!-- Header Banner & Daily Auto-Sync Status -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-base">🏆</span>
                             <h2 class="text-sm sm:text-base font-extrabold text-white m-0">Individual Prediction Model Leaderboard (${rankedModels.length} Active Models)</h2>
+                            ${newModelsList.length > 0 ? `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase font-mono-num">${newModelsList.length} New (&lt;25 GP)</span>` : ''}
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5 m-0">Includes strictly the approved Season-To-Date models present in your Google Sheet. Tiers 1, 2 &amp; 3 automatically re-rank daily by live ATS Win %.</p>
+                        <p class="text-xs text-slate-400 mt-0.5 m-0">Tier 1 (&ge;54%) &bull; Tier 2 (50%–53.99%) &bull; Tier 3 (&le;49.99%) &bull; New Model (&lt;25 total games predicted). Updates daily as games finish.</p>
                     </div>
-                    <div class="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-300 font-mono-num">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span>Daily ATS Auto-Tiering Active</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="window.__nbaActions.retrySync()" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[11px] font-bold text-slate-200 transition cursor-pointer font-mono-num">
+                            ↻ Sync Sheet
+                        </button>
+                        <div class="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-300 font-mono-num">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>Daily ATS Auto-Tiering</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Dynamic Tier Assignment Summary Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-800/80 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-800/80 text-xs">
                     <div class="bg-slate-950/80 border border-orange-500/40 rounded-lg p-3">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-orange-400">Tier 1 — Core Consensus</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-orange-400">Tier 1 (&ge;54.0%)</span>
                             <span class="text-[10px] font-mono-num text-slate-400">${t1Models.length} Models</span>
                         </div>
                         <div class="mt-1.5 flex flex-wrap gap-1">
-                            ${t1Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-200 border border-orange-500/30 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.decided > 0 ? m.winPct.toFixed(1) + '%' : '—'})</span>`).join('')}
+                            ${t1Models.length > 0
+                                ? t1Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-200 border border-orange-500/30 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.winPct.toFixed(1)}%)</span>`).join('')
+                                : `<span class="text-[10px] text-slate-500">None currently &ge;54%</span>`}
                         </div>
                     </div>
 
                     <div class="bg-slate-950/80 border border-sky-500/40 rounded-lg p-3">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-sky-400">Tier 2 — Secondary</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-sky-400">Tier 2 (50%–53.99%)</span>
                             <span class="text-[10px] font-mono-num text-slate-400">${t2Models.length} Models</span>
                         </div>
                         <div class="mt-1.5 flex flex-wrap gap-1">
-                            ${t2Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-200 border border-sky-500/30 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.decided > 0 ? m.winPct.toFixed(1) + '%' : '—'})</span>`).join('')}
+                            ${t2Models.length > 0
+                                ? t2Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-200 border border-sky-500/30 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.winPct.toFixed(1)}%)</span>`).join('')
+                                : `<span class="text-[10px] text-slate-500">None currently 50–53.99%</span>`}
                         </div>
                     </div>
 
                     <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-3">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Tier 3 — Contrarian Check</span>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Tier 3 (&le;49.99%)</span>
                             <span class="text-[10px] font-mono-num text-slate-500">${t3Models.length} Models</span>
                         </div>
                         <div class="mt-1.5 flex flex-wrap gap-1">
-                            ${t3Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.decided > 0 ? m.winPct.toFixed(1) + '%' : '—'})</span>`).join('')}
+                            ${t3Models.length > 0
+                                ? t3Models.map(m => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.winPct.toFixed(1)}%)</span>`).join('')
+                                : `<span class="text-[10px] text-slate-500">None currently &le;49.99%</span>`}
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/80 border border-amber-500/40 rounded-lg p-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-400">New Model (&lt;25 GP)</span>
+                            <span class="text-[10px] font-mono-num text-slate-400">${newModelsList.length} Models</span>
+                        </div>
+                        <div class="mt-1.5 flex flex-wrap gap-1">
+                            ${newModelsList.length > 0
+                                ? newModelsList.map(m => `<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-200 border border-amber-500/30 font-mono-num text-[10px] font-bold">${esc(m.code)} (${m.totalPredicted}/${NEW_MODEL_MIN_GAMES})</span>`).join('')
+                                : `<span class="text-[10px] text-slate-500">All sheet models &ge;25 GP</span>`}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Sort Controls -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span class="text-slate-400 font-semibold">Sort Leaderboard By:</span>
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -2024,7 +2570,6 @@
                 </div>
             </div>
 
-            <!-- Leaderboard Table -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -2032,42 +2577,66 @@
                             <tr class="bg-slate-950/90 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 <th class="py-3 px-3 text-center">Rank</th>
                                 <th class="py-3 px-3">Prediction Model</th>
-                                <th class="py-3 px-3 text-center">Sheet Column</th>
                                 <th class="py-3 px-3 text-center">Active Tier</th>
+                                <th class="py-3 px-3 text-center">Games Pred</th>
                                 <th class="py-3 px-3 text-center">Season ATS Record</th>
                                 <th class="py-3 px-3 text-center">ATS Win %</th>
                                 <th class="py-3 px-3 text-center">Today ATS</th>
+                                <th class="py-3 px-3 text-center">Yesterday ATS</th>
+                                <th class="py-3 px-3 text-center">Last 2 Weeks</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/70 text-xs">
                             ${sortedModels.map(m => {
-                                const tierBadge = m.tier === 1
-                                    ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
-                                    : (m.tier === 2 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-800 text-slate-400 border-slate-700');
+                                const isNew = m.tier === 'NEW';
+                                const tierBadge = isNew
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                    : (m.tier === 1
+                                        ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+                                        : (m.tier === 2 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'));
+                                const tierLabel = isNew ? 'NEW MODEL' : `TIER ${m.tier}`;
                                 const pctColor = m.decided === 0
                                     ? 'text-slate-400 font-semibold'
-                                    : (m.winPct >= 52.4 ? 'text-emerald-400 font-black' : (m.winPct >= 50.0 ? 'text-sky-300 font-bold' : 'text-rose-400 font-semibold'));
+                                    : (m.winPct >= 54.0 ? 'text-emerald-400 font-black' : (m.winPct >= 50.0 ? 'text-sky-300 font-bold' : 'text-rose-400 font-semibold'));
+
                                 const todayStr = (m.todayW + m.todayL + m.todayP) > 0
                                     ? `${m.todayW}-${m.todayL}${m.todayP > 0 ? '-' + m.todayP : ''}`
                                     : '0-0';
+
+                                const yestHasGames = (m.yesterdayW + m.yesterdayL + m.yesterdayP) > 0;
+                                const yesterdayStr = yestHasGames
+                                    ? `${m.yesterdayW}-${m.yesterdayL}${m.yesterdayP > 0 ? '-' + m.yesterdayP : ''}`
+                                    : '0-0';
+                                const yesterdayColor = !yestHasGames
+                                    ? 'text-slate-400'
+                                    : (m.yesterdayW > m.yesterdayL ? 'text-emerald-400 font-bold' : (m.yesterdayW < m.yesterdayL ? 'text-rose-400 font-semibold' : 'text-slate-200 font-semibold'));
+
+                                const twoWeeksHasGames = (m.twoWeeksW + m.twoWeeksL + m.twoWeeksP) > 0;
+                                const twoWeeksStr = twoWeeksHasGames
+                                    ? `${m.twoWeeksW}-${m.twoWeeksL}${m.twoWeeksP > 0 ? '-' + m.twoWeeksP : ''}`
+                                    : '0-0';
+                                const twoWeeksColor = !twoWeeksHasGames
+                                    ? 'text-slate-400'
+                                    : (m.twoWeeksDecided > 0 && m.twoWeeksPct >= 54.0 ? 'text-emerald-400 font-bold' : (m.twoWeeksDecided > 0 && m.twoWeeksPct >= 50.0 ? 'text-sky-300 font-semibold' : 'text-rose-400 font-semibold'));
+
                                 return `
                                 <tr class="hover:bg-slate-800/40 transition">
-                                    <td class="py-3 px-3 text-center font-mono-num font-black ${m.rank <= 3 ? 'text-orange-400' : 'text-slate-400'}">
-                                        #${m.rank}
+                                    <td class="py-3 px-3 text-center font-mono-num font-black ${!isNew && m.rank <= 3 ? 'text-orange-400' : 'text-slate-400'}">
+                                        ${isNew ? 'NEW' : '#' + m.rank}
                                     </td>
                                     <td class="py-3 px-3">
-                                        <div class="font-bold text-slate-100 flex items-center gap-2">
+                                        <div class="font-bold text-slate-100 flex items-center gap-2 flex-wrap">
                                             <span>${esc(m.name)}</span>
                                             <span class="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono-num text-slate-400">${esc(m.code)}</span>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-3 text-center font-mono-num text-[11px] text-slate-400">
-                                        ${esc(m.sheetHeader)}
-                                    </td>
                                     <td class="py-3 px-3 text-center font-mono-num">
                                         <span class="inline-block px-2.5 py-0.5 rounded text-[10px] font-black uppercase border ${tierBadge}">
-                                            TIER ${m.tier}
+                                            ${tierLabel}
                                         </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center font-mono-num ${isNew ? 'text-amber-300 font-bold' : 'text-slate-400'}">
+                                        ${isNew ? `${m.totalPredicted}/${NEW_MODEL_MIN_GAMES}` : m.totalPredicted}
                                     </td>
                                     <td class="py-3 px-3 text-center font-mono-num font-bold text-slate-200">
                                         ${m.totalW}-${m.totalL}${m.totalP > 0 ? '-' + m.totalP : ''}
@@ -2077,6 +2646,13 @@
                                     </td>
                                     <td class="py-3 px-3 text-center font-mono-num text-slate-300">
                                         ${todayStr}
+                                    </td>
+                                    <td class="py-3 px-3 text-center font-mono-num ${yesterdayColor}">
+                                        ${yesterdayStr}
+                                    </td>
+                                    <td class="py-3 px-3 text-center font-mono-num ${twoWeeksColor}">
+                                        <div>${twoWeeksStr}</div>
+                                        ${m.twoWeeksDecided > 0 ? `<div class="text-[9px] text-slate-400 font-normal">${m.twoWeeksPct.toFixed(1)}%</div>` : ''}
                                     </td>
                                 </tr>`;
                             }).join('')}
@@ -2115,6 +2691,13 @@
                 grade: item.grade
             });
         });
+
+        gradedList.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+        const isCloudHealthy = state.hasReceivedCloudSnapshot;
+        const cloudBadgeCls = isCloudHealthy
+            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+            : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
 
         const tableSection = gradedList.length === 0 ? `
             <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
@@ -2161,13 +2744,17 @@
         return `
         <div class="space-y-4">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Window:</span>
                     <div class="flex flex-wrap items-center gap-1.5">
                         ${timeframeOptions.map(tf => `
                             <button onclick="window.__nbaActions.setTimeframe('${tf.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeTimeframe === tf.id ? 'bg-orange-600 text-white shadow-md shadow-orange-600/30' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">${tf.label}</button>
                         `).join('')}
                     </div>
+                </div>
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-mono-num font-bold ${cloudBadgeCls}">
+                    <span class="w-1.5 h-1.5 rounded-full ${isCloudHealthy ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}"></span>
+                    <span>${esc(state.cloudStatus)}</span>
                 </div>
             </div>
 
@@ -2222,11 +2809,11 @@
         const displayedGames = getDisplayedGames(filteredGames);
 
         renderHeaderAndTabs(filteredGames);
+        renderReadmeModal();
 
         const mainEl = document.getElementById('main-content');
         if (!mainEl) return;
 
-        // Preserve search input focus & cursor position if typing
         const activeEl = document.activeElement;
         const wasSearching = activeEl && activeEl.id === 'team-search-input';
         const selStart = wasSearching ? activeEl.selectionStart : 0;
@@ -2249,9 +2836,29 @@
     }
 
     // =========================================================================
-    // 9. INTERACTIVE UI ACTION HANDLERS
+    // 10. INTERACTIVE UI ACTION HANDLERS
     // =========================================================================
     window.__nbaActions = {
+        openReadmeModal() {
+            state.showReadmeModal = true;
+            renderReadmeModal();
+            if (!state.readmeFetchedFromFile && window.location && /^https?:$/i.test(window.location.protocol)) {
+                fetch('./README.md?t=' + Date.now())
+                    .then(res => (res && res.ok ? res.text() : null))
+                    .then(txt => {
+                        if (txt && txt.trim().length > 0) {
+                            state.readmeMarkdown = txt;
+                            state.readmeFetchedFromFile = true;
+                            if (state.showReadmeModal) renderReadmeModal();
+                        }
+                    })
+                    .catch(() => {});
+            }
+        },
+        closeReadmeModal() {
+            state.showReadmeModal = false;
+            renderReadmeModal();
+        },
         setTab(tab) { state.activeTab = tab; renderApp(); },
         toggleLiveFilter() {
             state.activeTab = 'matchups';
@@ -2272,7 +2879,7 @@
             if (!filtered.length) return;
             const keys = ['__ALL__', ...filtered.map(g => getGameKey(g))];
             const idx = keys.indexOf(state.selectedGameKey);
-            const nextKey = idx === -1 ? filtered[filtered.length - 1] && getGameKey(filtered[filtered.length - 1]) : keys[(idx - 1 + keys.length) % keys.length];
+            const nextKey = idx === -1 ? getGameKey(filtered[filtered.length - 1]) : keys[(idx - 1 + keys.length) % keys.length];
             state.selectedGameKey = nextKey;
             if (nextKey !== '__ALL__') {
                 state.searchQuery = '';
@@ -2311,15 +2918,24 @@
         setRecOutcome(out) { state.recordOutcomeFilter = out; renderApp(); }
     };
 
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.showReadmeModal) {
+            window.__nbaActions.closeReadmeModal();
+        }
+    });
+
     // =========================================================================
-    // 10. BOOT IMMEDIATELY ON DOM READY
+    // 11. BOOT IMMEDIATELY ON DOM READY
     // =========================================================================
-    renderApp();
     initFirebase();
+    renderApp();
     fetchSheetData();
     autoRefreshTimer = setInterval(() => {
         if (state.autoRefresh) fetchLiveScores();
     }, 30000);
+    setInterval(() => {
+        if (state.autoRefresh) fetchSheetData();
+    }, 300000);
 })();
 </script>
 </body>
