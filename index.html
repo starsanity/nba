@@ -81,17 +81,17 @@
     <!-- Footer -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="font-bold text-slate-300">Tier Cover Recommendation Structure:</span>
-            <span class="text-slate-400 font-mono-num">Model Spread vs. Live ESPN Line</span>
+            <span class="font-bold text-slate-300">Tier Cover &amp; Edge Recommendation Structure:</span>
+            <span class="text-slate-400 font-mono-num">Tier Avg Spread vs. Live ESPN Line</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono-num">
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-emerald-400 block mb-0.5">STRONG BET &mdash; Tier 1/2 Cover Consensus:</strong>
-                Tier 1 = 100% cover, OR Tier 1 (&ge; 50% &amp; &lt; 100% cover) &amp; Tier 2 = 100% cover on the target side.
+                <strong class="text-emerald-400 block mb-0.5">STRONG BET &mdash; Unanimous Tier Cover + Edge:</strong>
+                Tier 1 = 100% same side &amp; |T1 Avg &minus; Line| &ge; 2.0 pts, OR Tier 1 &lt; 100% &amp; Tier 2 = 100% same side &amp; |T2 Avg &minus; Line| &ge; 3.0 pts.
             </div>
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-sky-400 block mb-0.5">LEAN &mdash; Partial Tier Consensus:</strong>
-                Tier 1, Tier 2, or Tier 3 is less than 100% cover (or Tier 2 = 100% with &lt; 50% Tier 1 cover).
+                <strong class="text-sky-400 block mb-0.5">LEAN &mdash; All Other Matchups:</strong>
+                Any matchup that does not meet the Strong Bet cover &amp; edge thresholds above.
             </div>
         </div>
     </footer>
@@ -117,23 +117,23 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 - **Focused Single-Matchup View**: Select any matchup from the main dropdown (or cycle with \`◀\` / \`▶\`) to inspect that game's Tier Cover consensus, CLV tracker, and efficiency breakdown without clutter.
 - **Display All Games (\`📋 Display All Games\`)**: Expand the full daily slate into a responsive multi-card grid with quick-filter pills (\`All Matchups\`, \`🔴 Live Now\`, \`Strong Bets\`, \`Leans\`) and multi-token franchise search (city, mascot, or abbreviation).
 
-### 2. Tier Cover Recommendation Classification
-- Recommendations (**STRONG BET** or **LEAN**) are determined strictly by model cover agreement across active prediction model tiers against the live ESPN line:
+### 2. Tier Cover & Edge Recommendation Classification
+- Recommendations (**STRONG BET** or **LEAN**) are determined by unanimous model cover agreement combined with Tier average spread edge against the live ESPN Sportsbook line (with PredictionTracker.com sheet lines automatically converted from \`+\` Home Favored / \`-\` Visitor Favored into standard Sportsbook spread notation):
 
 | Classification | Rule Condition | Description |
 |---|---|---|
-| **STRONG BET** | \`Tier 1 = 100% cover\` **OR** \`Tier 1 (≥ 50% & < 100% cover) & Tier 2 = 100% cover\` | High-confidence consensus where 100% of Tier 1 models agree on the cover side, or at least 50% of Tier 1 models cover alongside 100% of Tier 2 models on that target side. |
-| **LEAN** | \`Tier 1, Tier 2, or Tier 3 < 100% cover\` (or \`Tier 2 = 100%\` with \`< 50%\` Tier 1 cover) | Actionable model lean where unanimous Tier 1/2 threshold conditions are not met. |
+| **STRONG BET** | \`Tier 1 = 100% same side & |T1 Avg - Line| >= 2.0 pts\` **OR** \`Tier 1 < 100% & Tier 2 = 100% same side & |T2 Avg - Line| >= 3.0 pts\` | High-confidence play where 100% of Tier 1 models cover the same side with at least a 2.0-point Tier 1 average edge, OR Tier 1 is under 100% while 100% of Tier 2 models cover the same side with at least a 3.0-point Tier 2 average edge. |
+| **LEAN** | \`All other matchups\` | Any matchup that does not meet the Strong Bet cover and point-edge thresholds above. |
 
 - **Zero Passes**: Every matchup on the board produces an actionable pick (\`STRONG BET\` or \`LEAN\`).
 
 ### 3. Individual Prediction Model Leaderboard & Dynamic ATS Tiers
 - **Automatic Google Sheet Discovery**: Automatically detects and tracks all prediction model columns present in your connected Google Sheet—including any new models added later in the season.
 - **Daily Auto-Grading & Tier Reassignment**: As games go final, each model's ATS pick is graded automatically in Cloud Firestore and assigned to its active tier based on Season-To-Date ATS win percentage:
-  - **Tier 1 (≥ 54.00% ATS)**: Core consensus models (≥ 25 games predicted).
-  - **Tier 2 (50.00% - 53.99% ATS)**: Secondary consensus models (≥ 25 games predicted).
-  - **Tier 3 (≤ 49.99% ATS)**: Contrarian check models (≥ 25 games predicted).
-  - **New Model (< 25 Games Predicted)**: Newly added sheet models tracked in \`NEW MODEL\` status until reaching 25 predicted games.
+  - **Tier 1 (Top 3 ATS% Excl. New Models)**: Top 3 highest ATS win percentage models among qualified models (>= 25 games predicted).
+  - **Tier 2 (> 50.00% ATS Excl. Tier 1 & New Models)**: Any remaining qualified model (>= 25 games predicted) with an ATS win rate above 50.00%.
+  - **Tier 3 (< 50.00% ATS Excl. New Models)**: Any qualified model (>= 25 games predicted) with an ATS win rate below 50.00%.
+  - **New Model (< 25 Games Predicted)**: Newly added sheet models tracked in \`NEW MODEL\` status (and excluded from Tiers 1-3) until reaching 25 predicted games.
 - **Recent Form Tracking**: Displays **Today ATS**, **Yesterday ATS**, and rolling 14-day **Last 2 Weeks** ATS records for every model.
 
 ### 4. Closing Line Value (CLV) & Line Movement Tracker
@@ -152,10 +152,10 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
 ## Version 1.3 Release Highlights
 - Interactive **\`v1.3\`** header badge to view \`README.md\` directly inside the app.
-- Tier Cover Recommendation Engine replacing Delta Gatekeeper thresholds (**Strong Bet**: Tier 1 = 100% cover or Tier 1 ≥ 50% & < 100% cover with Tier 2 = 100% cover; **Lean**: Tier 1, Tier 2, or Tier 3 < 100% cover).
+- Tier Cover & Edge Recommendation Engine (**Strong Bet**: Tier 1 100% same side & |T1 Avg - Line| >= 2.0 pts, or Tier 1 < 100% & Tier 2 100% same side & |T2 Avg - Line| >= 3.0 pts; **Lean**: all other matchups).
 - Streamlined main matchup dropdown defaulting to a clean selector prompt with **\`📋 Display All Games\`** option.
 - Single-matchup **Closing Line Value (CLV) & Line Movement Tracker**.
-- Dynamic **Prediction Model Leaderboard** with auto-discovery of new Google Sheet models, 25-game graduation rules, **Yesterday ATS**, and **Last 2 Weeks** columns.
+- Dynamic **Prediction Model Leaderboard** with Top 3 Tier 1, >50% Tier 2, <50% Tier 3, 25-game New Model graduation rules, **Yesterday ATS**, and **Last 2 Weeks** columns.
 - Rematch-safe historical cloud synchronization with read-before-write protection and instant cache mirroring.`;
 
     // =========================================================================
@@ -177,30 +177,30 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         appId: "1:842144507537:web:5e04d7343c2f74b2390cc0"
     };
 
-    const MODEL_BASELINE_DATE = '2026-11-18';
-    const MODEL_BASELINE_YESTERDAY = '2026-11-17';
+    const MODEL_BASELINE_DATE = '2026-11-19';
+    const MODEL_BASELINE_YESTERDAY = '2026-11-18';
     const NEW_MODEL_MIN_GAMES = 25;
     const CLOUD_MIRROR_STORAGE_KEY = 'nba_analyzer_cloud_mirror_v1';
 
     const APPROVED_MODEL_META = {
-        lineagatha:   { name: 'agatha.gg',                 code: 'AGATHA', baseW: 46,  baseL: 32,  baseP: 0, yestW: 3, yestL: 2, yestP: 0, twoWkW: 46, twoWkL: 32, twoWkP: 0 }, // 58.97% -> Tier 1
-        lineversus:   { name: 'Versus Sports Simulator',   code: 'VERSUS', baseW: 111, baseL: 90,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 50, twoWkL: 47, twoWkP: 0 }, // 55.22% -> Tier 1
-        linesagp:     { name: 'Sagarin Predictor',         code: 'SAG-P',  baseW: 109, baseL: 92,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 55, twoWkL: 42, twoWkP: 0 }, // 54.23% -> Tier 1
-        linedoi:      { name: 'DirectorOfInformation.com', code: 'DOI',    baseW: 108, baseL: 93,  baseP: 0, yestW: 3, yestL: 2, yestP: 0, twoWkW: 54, twoWkL: 43, twoWkP: 0 }, // 53.73% -> Tier 2
-        linegtd:      { name: 'Game Time Decision',        code: 'GTD',    baseW: 100, baseL: 90,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 50, twoWkL: 44, twoWkP: 0 }, // 52.63% -> Tier 2
-        linedok:      { name: 'Dokter Entropy',            code: 'DOK',    baseW: 105, baseL: 96,  baseP: 0, yestW: 3, yestL: 2, yestP: 0, twoWkW: 56, twoWkL: 41, twoWkP: 0 }, // 52.24% -> Tier 2
-        linesage:     { name: 'Sagarin Rating',            code: 'SAG-E',  baseW: 104, baseL: 96,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 54, twoWkL: 42, twoWkP: 0 }, // 52.00% -> Tier 2
-        linesaggm:    { name: 'Sagarin Golden Mean',       code: 'SAG-GM', baseW: 103, baseL: 98,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 51, twoWkL: 46, twoWkP: 0 }, // 51.24% -> Tier 2
-        lineavg:      { name: 'System Average',            code: 'AVG',    baseW: 101, baseL: 100, baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 52, twoWkL: 45, twoWkP: 0 }, // 50.25% -> Tier 2
-        linemoore:    { name: 'Sonny Moore',               code: 'MOORE',  baseW: 101, baseL: 100, baseP: 0, yestW: 1, yestL: 4, yestP: 0, twoWkW: 53, twoWkL: 44, twoWkP: 0 }, // 50.25% -> Tier 2
-        linemassey:   { name: 'Massey Ratings',            code: 'MASSEY', baseW: 101, baseL: 100, baseP: 0, yestW: 1, yestL: 4, yestP: 0, twoWkW: 52, twoWkL: 45, twoWkP: 0 }, // 50.25% -> Tier 2
-        linedratings: { name: 'D Ratings.com',             code: 'DRAT',   baseW: 99,  baseL: 99,  baseP: 0, yestW: 3, yestL: 2, yestP: 0, twoWkW: 57, twoWkL: 40, twoWkP: 0 }, // 50.00% -> Tier 2
-        linesagrec:   { name: 'Sagarin Recent',            code: 'SAG-R',  baseW: 100, baseL: 101, baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 48, twoWkL: 49, twoWkP: 0 }, // 49.75% -> Tier 3
-        linedunk:     { name: 'Dunkel Index',              code: 'DUNK',   baseW: 91,  baseL: 93,  baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 52, twoWkL: 44, twoWkP: 0 }, // 49.46% -> Tier 3
-        lineespn:     { name: 'ESPN BPI',                  code: 'ESPN',   baseW: 95,  baseL: 106, baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 47, twoWkL: 50, twoWkP: 0 }, // 47.26% -> Tier 3
-        linecomp:     { name: 'Computer Adjusted',         code: 'COMP',   baseW: 90,  baseL: 109, baseP: 0, yestW: 2, yestL: 3, yestP: 0, twoWkW: 42, twoWkL: 55, twoWkP: 0 }, // 45.23% -> Tier 3
-        linetalis:    { name: 'Talisman Red',              code: 'TALIS',  baseW: 88,  baseL: 108, baseP: 0, yestW: 1, yestL: 4, yestP: 0, twoWkW: 44, twoWkL: 48, twoWkP: 0 }, // 44.90% -> Tier 3
-        linemodeledge:{ name: 'Model Edge Sports',         code: 'MES',    baseW: 29,  baseL: 37,  baseP: 0, yestW: 1, yestL: 4, yestP: 0, twoWkW: 29, twoWkL: 37, twoWkP: 0 }  // 43.94% -> Tier 3
+        lineagatha:   { name: 'agatha.gg',                 code: 'AGATHA', baseW: 49,  baseL: 41,  baseP: 0, yestW: 3,  yestL: 9, yestP: 0, twoWkW: 49, twoWkL: 41, twoWkP: 0 }, // 54.44% -> Tier 1 (#1)
+        lineversus:   { name: 'Versus Sports Simulator',   code: 'VERSUS', baseW: 115, baseL: 98,  baseP: 0, yestW: 4,  yestL: 8, yestP: 0, twoWkW: 47, twoWkL: 48, twoWkP: 0 }, // 53.99% -> Tier 1 (#2)
+        linedoi:      { name: 'DirectorOfInformation.com', code: 'DOI',    baseW: 115, baseL: 98,  baseP: 0, yestW: 7,  yestL: 5, yestP: 0, twoWkW: 53, twoWkL: 42, twoWkP: 0 }, // 53.99% -> Tier 1 (#3)
+        linesagp:     { name: 'Sagarin Predictor',         code: 'SAG-P',  baseW: 114, baseL: 99,  baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 52, twoWkL: 43, twoWkP: 0 }, // 53.52% -> Tier 2 (>50%)
+        linedratings: { name: 'D Ratings.com',             code: 'DRAT',   baseW: 109, baseL: 101, baseP: 0, yestW: 10, yestL: 2, yestP: 0, twoWkW: 59, twoWkL: 36, twoWkP: 0 }, // 51.90% -> Tier 2 (>50%)
+        linegtd:      { name: 'Game Time Decision',        code: 'GTD',    baseW: 104, baseL: 97,  baseP: 0, yestW: 4,  yestL: 7, yestP: 0, twoWkW: 46, twoWkL: 46, twoWkP: 0 }, // 51.74% -> Tier 2 (>50%)
+        linesage:     { name: 'Sagarin Rating',            code: 'SAG-E',  baseW: 109, baseL: 103, baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 52, twoWkL: 42, twoWkP: 0 }, // 51.42% -> Tier 2 (>50%)
+        linesaggm:    { name: 'Sagarin Golden Mean',       code: 'SAG-GM', baseW: 109, baseL: 104, baseP: 0, yestW: 6,  yestL: 6, yestP: 0, twoWkW: 49, twoWkL: 46, twoWkP: 0 }, // 51.17% -> Tier 2 (>50%)
+        linedok:      { name: 'Dokter Entropy',            code: 'DOK',    baseW: 109, baseL: 104, baseP: 0, yestW: 4,  yestL: 8, yestP: 0, twoWkW: 54, twoWkL: 41, twoWkP: 0 }, // 51.17% -> Tier 2 (>50%)
+        lineavg:      { name: 'System Average',            code: 'AVG',    baseW: 106, baseL: 107, baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 50, twoWkL: 45, twoWkP: 0 }, // 49.77% -> Tier 3 (<50%)
+        linemoore:    { name: 'Sonny Moore',               code: 'MOORE',  baseW: 106, baseL: 107, baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 49, twoWkL: 46, twoWkP: 0 }, // 49.77% -> Tier 3 (<50%)
+        linemassey:   { name: 'Massey Ratings',            code: 'MASSEY', baseW: 106, baseL: 107, baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 49, twoWkL: 46, twoWkP: 0 }, // 49.77% -> Tier 3 (<50%)
+        linesagrec:   { name: 'Sagarin Recent',            code: 'SAG-R',  baseW: 105, baseL: 108, baseP: 0, yestW: 5,  yestL: 7, yestP: 0, twoWkW: 46, twoWkL: 49, twoWkP: 0 }, // 49.30% -> Tier 3 (<50%)
+        linedunk:     { name: 'Dunkel Index',              code: 'DUNK',   baseW: 94,  baseL: 102, baseP: 0, yestW: 3,  yestL: 9, yestP: 0, twoWkW: 46, twoWkL: 48, twoWkP: 0 }, // 47.96% -> Tier 3 (<50%)
+        lineespn:     { name: 'ESPN BPI',                  code: 'ESPN',   baseW: 102, baseL: 111, baseP: 0, yestW: 7,  yestL: 5, yestP: 0, twoWkW: 45, twoWkL: 50, twoWkP: 0 }, // 47.89% -> Tier 3 (<50%)
+        linemodeledge:{ name: 'Model Edge Sports',         code: 'MES',    baseW: 36,  baseL: 42,  baseP: 0, yestW: 7,  yestL: 5, yestP: 0, twoWkW: 36, twoWkL: 42, twoWkP: 0 }, // 46.15% -> Tier 3 (<50%)
+        linecomp:     { name: 'Computer Adjusted',         code: 'COMP',   baseW: 97,  baseL: 114, baseP: 0, yestW: 7,  yestL: 5, yestP: 0, twoWkW: 44, twoWkL: 51, twoWkP: 0 }, // 45.97% -> Tier 3 (<50%)
+        linetalis:    { name: 'Talisman Red',              code: 'TALIS',  baseW: 91,  baseL: 117, baseP: 0, yestW: 3,  yestL: 9, yestP: 0, twoWkW: 41, twoWkL: 49, twoWkP: 0 }  // 43.75% -> Tier 3 (<50%)
     };
 
     const MODEL_HEADER_ALIASES = {
@@ -607,21 +607,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             const twoWeeksDecided = twoWeeksW + twoWeeksL;
             const twoWeeksPct = twoWeeksDecided > 0 ? (twoWeeksW / twoWeeksDecided) * 100 : 0.0;
 
-            let tier = 0;
-            let tierLabel = 'NEW MODEL';
-            if (!isNewModel) {
-                if (winPct >= 54.0) {
-                    tier = 1;
-                    tierLabel = 'TIER 1';
-                } else if (winPct >= 50.0) {
-                    tier = 2;
-                    tierLabel = 'TIER 2';
-                } else {
-                    tier = 3;
-                    tierLabel = 'TIER 3';
-                }
-            }
-
             return {
                 ...m,
                 totalW,
@@ -641,8 +626,8 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 twoWeeksP,
                 twoWeeksPct,
                 isNewModel,
-                tier,
-                tierLabel
+                tier: 0,
+                tierLabel: 'NEW MODEL'
             };
         });
 
@@ -651,15 +636,37 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             return b.totalW - a.totalW;
         });
 
+        // Tier Assignment Rules:
+        // - New Model: < 25 total games predicted (excluded from Tiers 1, 2, 3)
+        // - Tier 1: Top 3 ATS% among qualified models (minus New Models)
+        // - Tier 2: Anything higher than 50% (minus Tier 1 and New Models)
+        // - Tier 3: Anything less than 50% (minus New Models)
+        let qualifiedRank = 0;
         stats.forEach((item, idx) => {
             item.rank = idx + 1;
+            if (item.isNewModel) {
+                item.tier = 0;
+                item.tierLabel = 'NEW MODEL';
+            } else {
+                qualifiedRank++;
+                if (qualifiedRank <= 3) {
+                    item.tier = 1;
+                    item.tierLabel = 'TIER 1';
+                } else if (item.winPct >= 50.0) {
+                    item.tier = 2;
+                    item.tierLabel = 'TIER 2';
+                } else {
+                    item.tier = 3;
+                    item.tierLabel = 'TIER 3';
+                }
+            }
         });
 
         return stats;
     }
 
     // =========================================================================
-    // 5. TIER COVER RECOMMENDATION ANALYTICAL ENGINE
+    // 5. TIER COVER & EDGE RECOMMENDATION ANALYTICAL ENGINE
     // =========================================================================
     function analyzeMatchup(game) {
         const leaderboard = getModelLeaderboardStats();
@@ -674,8 +681,12 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         leaderboard.forEach(m => {
             const rawVal = game.rawRow ? game.rawRow[m.rawHeader] : null;
             if (rawVal === null || rawVal === undefined || String(rawVal).trim() === '') return;
-            const num = parseFloat(String(rawVal).replace(/[^0-9.\-+]/g, ''));
-            if (isNaN(num)) return;
+            const rawPtNum = parseFloat(String(rawVal).replace(/[^0-9.\-+]/g, ''));
+            if (isNaN(rawPtNum)) return;
+
+            // PredictionTracker.com convention: +3 = Home favored by 3, -3 = Visitor favored by 3.
+            // Convert to Sportsbook Home Spread convention: -3 = Home favored by 3, +3 = Visitor favored by 3.
+            const num = Math.abs(rawPtNum) < 0.001 ? 0 : -rawPtNum;
 
             allSpreads.push(num);
             const diffVsMarket = marketLine !== null ? (num - marketLine) : 0;
@@ -685,6 +696,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
             const breakdownObj = {
                 ...m,
+                ptRawSpread: rawPtNum,
                 spread: num,
                 diffVsMarket,
                 leansSide,
@@ -715,6 +727,10 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
         const effectiveMarket = marketLine !== null ? marketLine : modelSpread;
 
+        // Tier Average Edges vs. Current Line
+        const t1Edge = t1Avg !== null ? Math.abs(t1Avg - effectiveMarket) : 0;
+        const t2Edge = t2Avg !== null ? Math.abs(t2Avg - effectiveMarket) : 0;
+
         // Helper to evaluate 100% cover agreement & side counts per tier
         const evalTier = (models) => {
             const total = models.length;
@@ -731,38 +747,49 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         const t3Eval = evalTier(tier3Models);
 
         // Recommendation Classification Rules:
-        // Strong Bet: Tier 1 = 100% cover OR (Tier 1 >= 50% & < 100% cover AND Tier 2 = 100% cover on target side)
-        // Lean: Tier 1, Tier 2, or Tier 3 < 100% cover (or Tier 2 = 100% with < 50% Tier 1 cover)
+        // 1. Strong Bet:
+        //    - Tier 1 Cover = 100% on the same side AND |Tier 1 Average - Current Line| >= 2.0 points
+        //    - Else if Tier 1 Cover < 100% AND Tier 2 Cover = 100% on the same side AND |Tier 2 Average - Current Line| >= 3.0 points
+        // 2. Lean:
+        //    - Anything that doesn't meet Strong Bet criteria
         let finalAction = 'LEAN';
         let chosenSide = 'HOME';
         let decisionReason = '';
 
-        const t2TargetTier1Count = t2Eval.unanimousSide === 'HOME'
-            ? t1Eval.homeCount
-            : (t2Eval.unanimousSide === 'ROAD' ? t1Eval.roadCount : 0);
-        const hasAtLeastHalfTier1 = t1Eval.total === 0 || (t2TargetTier1Count * 2 >= t1Eval.total);
+        const isTier1Strong = t1Eval.unanimousSide !== null && t1Avg !== null && t1Edge >= (2.0 - 1e-9);
+        const isTier2Strong = t1Eval.unanimousSide === null && t2Eval.unanimousSide !== null && t2Avg !== null && t2Edge >= (3.0 - 1e-9);
 
-        if (t1Eval.unanimousSide !== null) {
+        if (isTier1Strong) {
             finalAction = 'STRONG BET';
             chosenSide = t1Eval.unanimousSide;
-            decisionReason = 'Tier 1 = 100% Cover';
-        } else if (t2Eval.unanimousSide !== null && hasAtLeastHalfTier1) {
+            decisionReason = `Tier 1 100% & T1 Edge ${t1Edge.toFixed(1)} pts`;
+        } else if (isTier2Strong) {
             finalAction = 'STRONG BET';
             chosenSide = t2Eval.unanimousSide;
-            decisionReason = 'Tier 1 ≥ 50% & Tier 2 = 100% Cover';
+            decisionReason = `Tier 2 100% & T2 Edge ${t2Edge.toFixed(1)} pts`;
         } else {
             finalAction = 'LEAN';
-            // Determine target side for Lean by highest-tier majority, then weighted consensus
-            if (t1Eval.homeCount !== t1Eval.roadCount) {
+            if (t1Eval.unanimousSide !== null) {
+                chosenSide = t1Eval.unanimousSide;
+                decisionReason = `Tier 1 100% (T1 Edge ${t1Edge.toFixed(1)} < 2.0 pts)`;
+            } else if (t1Eval.homeCount !== t1Eval.roadCount) {
                 chosenSide = t1Eval.homeCount > t1Eval.roadCount ? 'HOME' : 'ROAD';
+                decisionReason = t2Eval.unanimousSide !== null
+                    ? `Tier 2 100% (T2 Edge ${t2Edge.toFixed(1)} < 3.0 pts)`
+                    : 'Partial Tier Cover';
+            } else if (t2Eval.unanimousSide !== null) {
+                chosenSide = t2Eval.unanimousSide;
+                decisionReason = `Tier 2 100% (T2 Edge ${t2Edge.toFixed(1)} < 3.0 pts)`;
             } else if (t2Eval.homeCount !== t2Eval.roadCount) {
                 chosenSide = t2Eval.homeCount > t2Eval.roadCount ? 'HOME' : 'ROAD';
+                decisionReason = 'Partial Tier Cover';
             } else if (t3Eval.homeCount !== t3Eval.roadCount) {
                 chosenSide = t3Eval.homeCount > t3Eval.roadCount ? 'HOME' : 'ROAD';
+                decisionReason = 'Partial Tier Cover';
             } else {
                 chosenSide = (modelSpread - effectiveMarket) <= 0 ? 'HOME' : 'ROAD';
+                decisionReason = 'Partial Tier Cover';
             }
-            decisionReason = 'Tier Cover < 100%';
         }
 
         const pickHome = chosenSide === 'HOME';
@@ -801,6 +828,8 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             t1Avg,
             t2Avg,
             t3Avg,
+            t1Edge,
+            t2Edge,
             modelBreakdowns
         };
     }
@@ -811,7 +840,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             const liveOdds = state.liveOddsMap[liveKey];
             if (liveOdds && liveOdds.spread !== null && liveOdds.spread !== undefined) {
                 g.liveLine = liveOdds.spread;
-                g.lineSource = 'ESPN Live';
+                g.lineSource = 'Current Line';
             }
             const scoreInfo = state.liveScoreMap[liveKey];
             if (scoreInfo) {
@@ -845,7 +874,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
     function computeLiveCoverMetrics(game) {
         if (game.awayScore === null || game.homeScore === null || !game.result) return null;
-        const spread = game.result.marketLine; // Home team spread (e.g. -5.5)
+        const spread = game.result.marketLine;
         const homeMargin = game.homeScore - game.awayScore;
         const homeCoverMargin = homeMargin + spread;
         const targetCoverMargin = game.result.pickHome ? homeCoverMargin : -homeCoverMargin;
@@ -1000,11 +1029,11 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 anyNewGrade = true;
             }
 
-            // Grade individual prediction models for the leaderboard
             if (!state.modelGameLogs[recordKey] && g.result.modelBreakdowns && g.result.modelBreakdowns.length > 0) {
                 const resultsMap = {};
                 g.result.modelBreakdowns.forEach(mb => {
-                    const mPickHome = mb.spread <= spread;
+                    if (mb.leansSide === 'EVEN') return;
+                    const mPickHome = mb.leansSide === 'HOME';
                     const mCover = mPickHome ? homeCover : -homeCover;
                     let mOut = 'P';
                     if (mCover > 0.05) mOut = 'W';
@@ -1398,8 +1427,11 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 const road = String(row[roadHeader] || '').trim();
                 if (!home || !road) return;
 
-                const sheetLine = lineHeader ? parseLineNumber(row[lineHeader]) : null;
-                const sheetOpenLine = openHeader ? parseLineNumber(row[openHeader]) : null;
+                const rawSheetLine = lineHeader ? parseLineNumber(row[lineHeader]) : null;
+                const rawSheetOpenLine = openHeader ? parseLineNumber(row[openHeader]) : null;
+                // Convert PredictionTracker.com lines (+ = Home favored, - = Visitor favored) to Sportsbook Home Spread
+                const sheetLine = rawSheetLine !== null ? (Math.abs(rawSheetLine) < 0.001 ? 0 : -rawSheetLine) : null;
+                const sheetOpenLine = rawSheetOpenLine !== null ? (Math.abs(rawSheetOpenLine) < 0.001 ? 0 : -rawSheetOpenLine) : null;
                 const key = `${road}__${home}`;
 
                 const gameObj = {
@@ -1621,6 +1653,10 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         const homeProf = findTeamProfile(game.home);
         const roadProf = findTeamProfile(game.road);
 
+        const isPickEm = res.marketLine === null || res.marketLine === undefined || isNaN(res.marketLine) || Math.abs(res.marketLine) < 0.05;
+        const favTeam = isPickEm ? "Pick'em" : (res.marketLine < 0 ? game.home : game.road);
+        const favSpread = isPickEm ? 0 : -Math.abs(res.marketLine);
+
         const signalBadge = isStrong
             ? `<span class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm">🔥 STRONG BET</span>`
             : `<span class="px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/40">⚡ LEAN</span>`;
@@ -1774,10 +1810,25 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 </div>`;
 
             const modelsTabHtml = `
-                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2.5">
                     <div class="flex items-center justify-between flex-wrap gap-1">
-                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">Active Sheet Prediction Models (${res.modelBreakdowns.length})</span>
-                        <span class="text-[10px] font-mono-num text-slate-400">Market (${esc(game.home)}): ${formatSpread(res.marketLine)}</span>
+                        <div>
+                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 block">Active Sheet Prediction Models (${res.modelBreakdowns.length})</span>
+                            <span class="text-[9px] text-slate-500">PredictionTracker sheet lines (+ Home Fav) normalized to Sportsbook spread</span>
+                        </div>
+                        <span class="text-[10px] font-mono-num text-slate-400">Sportsbook (${esc(game.home)}): ${formatSpread(res.marketLine)}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-mono-num bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+                        <div>
+                            <span class="text-slate-400">Tier 1 Avg:</span>
+                            <strong class="text-white ml-1">${res.t1Avg !== null ? formatSpread(res.t1Avg) : '—'}</strong>
+                            <span class="ml-1 ${res.t1Edge >= 2.0 ? 'text-emerald-400 font-bold' : 'text-slate-400'}">(|Edge| ${res.t1Edge.toFixed(1)})</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400">Tier 2 Avg:</span>
+                            <strong class="text-white ml-1">${res.t2Avg !== null ? formatSpread(res.t2Avg) : '—'}</strong>
+                            <span class="ml-1 ${res.t2Edge >= 3.0 ? 'text-emerald-400 font-bold' : 'text-slate-400'}">(|Edge| ${res.t2Edge.toFixed(1)})</span>
+                        </div>
                     </div>
                     ${res.modelBreakdowns.length === 0 ? `<div class="text-xs text-slate-500 py-2">No individual model columns detected for this matchup.</div>` : `
                     <div class="overflow-x-auto max-h-64">
@@ -1869,12 +1920,12 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
                     <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">Model Line</div>
                     <div class="text-sm font-extrabold text-white mt-0.5">${formatSpread(res.modelSpread)}</div>
-                    <div class="text-[9px] text-slate-500 mt-0.5">${esc(game.home)}</div>
+                    <div class="text-[9px] text-slate-400 mt-0.5">T1: ${res.t1Avg !== null ? formatSpread(res.t1Avg) : '—'} &bull; T2: ${res.t2Avg !== null ? formatSpread(res.t2Avg) : '—'}</div>
                 </div>
                 <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
                     <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">${esc(game.lineSource)}</div>
-                    <div class="text-sm font-extrabold text-slate-200 mt-0.5">${formatSpread(res.marketLine)}</div>
-                    <div class="text-[9px] text-slate-500 mt-0.5">${esc(game.home)}</div>
+                    <div class="text-sm font-extrabold text-slate-200 mt-0.5">${formatSpread(favSpread)}</div>
+                    <div class="text-[9px] text-slate-500 mt-0.5">${esc(favTeam)}</div>
                 </div>
                 <div class="bg-slate-950/80 p-2.5 rounded-xl border ${isStrong ? 'border-emerald-500/40' : 'border-sky-500/40'}">
                     <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">Tier Cover %</div>
@@ -1980,10 +2031,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                         class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 focus:border-orange-500 text-xs sm:text-sm font-bold text-white outline-none cursor-pointer">
                         <option value="" ${state.selectedGameKey === '' ? 'selected' : ''}>— Click to Select a Matchup or Display All —</option>
                         <option value="__ALL__" ${state.selectedGameKey === '__ALL__' ? 'selected' : ''}>📋 Display All Games (${state.games.length} Matchups)</option>
-                        ${state.games.map(g => {
-                            const r = g.result || analyzeMatchup(g);
-                            return `<option value="${esc(g.key)}" ${state.selectedGameKey === g.key ? 'selected' : ''}>${esc(g.road)} @ ${esc(g.home)} — ${esc(r.finalAction)} (T1 ${r.t1CoverPct}% / T2 ${r.t2CoverPct}%)</option>`;
-                        }).join('')}
+                        ${state.games.map(g => `<option value="${esc(g.key)}" ${state.selectedGameKey === g.key ? 'selected' : ''}>${esc(g.road)} @ ${esc(g.home)}</option>`).join('')}
                     </select>
                     <button type="button" onclick="window.__nbaActions.cycleMatchup(1)" title="Next Matchup"
                         class="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-200 transition cursor-pointer shrink-0">
@@ -2039,20 +2087,16 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono-num">
                     <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2">
-                        <div class="font-extrabold text-emerald-300">TIER 1 (&ge; 54.00%)</div>
-                        <div class="text-slate-400 font-sans mt-0.5">Core Consensus (&ge;25 GP)</div>
+                        <div class="font-extrabold text-emerald-300">TIER 1 (TOP 3 ATS%)</div>
                     </div>
                     <div class="bg-sky-500/10 border border-sky-500/30 rounded-lg p-2">
-                        <div class="font-extrabold text-sky-300">TIER 2 (50.00-53.99%)</div>
-                        <div class="text-slate-400 font-sans mt-0.5">Secondary Tier (&ge;25 GP)</div>
+                        <div class="font-extrabold text-sky-300">TIER 2 (&gt; 50.00% ATS)</div>
                     </div>
                     <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
-                        <div class="font-extrabold text-amber-300">TIER 3 (&le; 49.99%)</div>
-                        <div class="text-slate-400 font-sans mt-0.5">Tier 3 Models (&ge;25 GP)</div>
+                        <div class="font-extrabold text-amber-300">TIER 3 (&lt; 50.00% ATS)</div>
                     </div>
                     <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2">
                         <div class="font-extrabold text-purple-300">NEW MODEL (&lt; 25 GP)</div>
-                        <div class="text-slate-400 font-sans mt-0.5">Auto-Discovered Probation</div>
                     </div>
                 </div>
 
@@ -2096,7 +2140,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                                             ? `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/40">TIER 2</span>`
                                             : `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">TIER 3</span>`));
 
-                                const winPctColor = m.isNewModel ? 'text-purple-300' : (m.winPct >= 54.0 ? 'text-emerald-400' : (m.winPct >= 50.0 ? 'text-sky-400' : 'text-amber-400'));
+                                const winPctColor = m.isNewModel ? 'text-purple-300' : (m.tier === 1 ? 'text-emerald-400' : (m.tier === 2 ? 'text-sky-400' : 'text-amber-400'));
                                 const seasonRecStr = m.totalP > 0 ? `${m.totalW}-${m.totalL}-${m.totalP}` : `${m.totalW}-${m.totalL}`;
                                 const todayStr = (m.todayW + m.todayL + m.todayP) > 0 ? `${m.todayW}-${m.todayL}${m.todayP > 0 ? '-' + m.todayP : ''}` : '0-0';
                                 const yestStr = (m.yesterdayW + m.yesterdayL + m.yesterdayP) > 0 ? `${m.yesterdayW}-${m.yesterdayL}${m.yesterdayP > 0 ? '-' + m.yesterdayP : ''}` : '0-0';
@@ -2257,12 +2301,12 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             <!-- 3 KPI Hero Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num">
                 <div class="bg-slate-900 border border-emerald-500/30 rounded-xl p-3.5 shadow">
-                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-emerald-400">Strong Bets (T1 100% / T1 &ge;50% + T2 100%)</div>
+                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-emerald-400">Strong Bets (T1 &ge;2.0 / T2 &ge;3.0)</div>
                     <div class="text-xl font-black text-white mt-1">${strongStats.w}-${strongStats.l}${strongStats.p > 0 ? '-' + strongStats.p : ''}</div>
                     <div class="text-[11px] text-emerald-300 font-bold mt-0.5">${strongStats.pct} Win Rate</div>
                 </div>
                 <div class="bg-slate-900 border border-sky-500/30 rounded-xl p-3.5 shadow">
-                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-sky-400">Leans (&lt; 100% Cover)</div>
+                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-sky-400">Leans</div>
                     <div class="text-xl font-black text-white mt-1">${leanStats.w}-${leanStats.l}${leanStats.p > 0 ? '-' + leanStats.p : ''}</div>
                     <div class="text-[11px] text-sky-300 font-bold mt-0.5">${leanStats.pct} Win Rate</div>
                 </div>
