@@ -1,51 +1,51 @@
-# 🏀 NBA Analyzer (v1.3)
+# Version 1.3 Release Notes — NBA Analyzer
 
-An automated NBA spread analytics, live market line comparison, Closing Line Value (CLV), and multi-tier prediction model tracking application powered by Google Sheets, live ESPN scoreboard/odds feeds, and Google Cloud Firestore.
+This document highlights all new features, UI enhancements, and architectural updates implemented in **Version 1.3** of **NBA Analyzer**.
 
----
+## 1. Tier Cover Recommendation Engine (Delta Gatekeeper Removed)
 
-## Core Features
+* **Removed Delta Gatekeeper Classification**: Replaced point-spread delta thresholds with unanimous tier cover agreement rules:
 
-### 1. Matchup Selector & Full Slate View
-- **Focused Single-Matchup View**: Select any matchup from the main dropdown (or cycle with `◀` / `▶`) to inspect that game's Delta edge, CLV tracker, and efficiency breakdown without clutter.
-- **Display All Games (`📋 Display All Games`)**: Expand the full daily slate into a responsive multi-card grid with quick-filter pills (`All Matchups`, `🔴 Live Now`, `Strong Bets`, `Leans`) and multi-token franchise search (city, mascot, or abbreviation).
+  * **Strong Bet**: Triggered when **Tier 1 = 100% cover**, OR when **Tier 1 (< 100% & $\ge 50\%$ cover) & Tier 2 = 100% cover** on the target side (requiring at least 50% of Tier 1 models to cover alongside 100% of Tier 2 models).
 
-### 2. Delta Gatekeeper Classification
-$$ \Delta = |\text{Model Consensus Spread} - \text{Live ESPN Line}| $$
+  * **Lean**: Triggered when **Tier 1, Tier 2, or Tier 3 < 100% cover** (including games where Tier 2 = 100% cover but fewer than 50% of Tier 1 models cover on that target side).
 
-| Delta Range | Classification | Description |
-|---|---|---|
-| $\ge 4.0\text{ pts}$ | **STRONG BET** | High-confidence edge where top-tier model consensus significantly deviates from live ESPN pricing. Downgraded to **LEAN** if Tier 3 contrarians oppose. |
-| $0.0 - 3.5\text{ pts}$ | **LEAN** | Actionable model lean detecting edge against the market spread. |
+* **Card & Dropdown Tier Cover Readouts**: Displays `T1 %`, `T2 %`, and `T3 %` cover agreement directly on every game card and inside the matchup dropdown selector.
 
-- **Zero Passes**: Every matchup on the board produces an actionable pick (`STRONG BET` or `LEAN`).
+## 2. Individual Prediction Model Leaderboard & ATS Win % Tier Rules
 
-### 3. Individual Prediction Model Leaderboard & Dynamic ATS Tiers
-- **Automatic Google Sheet Discovery**: Automatically detects and tracks all prediction model columns present in your connected Google Sheet—including any new models added later in the season.
-- **Daily Auto-Grading & Tier Reassignment**: As games go final, each model's ATS pick is graded automatically in Cloud Firestore and assigned to its active tier based on Season-To-Date ATS win percentage:
-  - **Tier 1 ($\ge 54.00\%$ ATS)**: Core consensus models ($\ge 25$ games predicted).
-  - **Tier 2 ($50.00\% - 53.99\%$ ATS)**: Secondary consensus models ($\ge 25$ games predicted).
-  - **Tier 3 ($\le 49.99\%$ ATS)**: Contrarian check models ($\ge 25$ games predicted).
-  - **New Model ($< 25$ Games Predicted)**: Newly added sheet models tracked in `NEW MODEL` status until reaching 25 predicted games.
-- **Recent Form Tracking**: Displays **Today ATS**, **Yesterday ATS**, and rolling 14-day **Last 2 Weeks** ATS records for every model.
+* **Updated ATS Win % Tier Thresholds & Sample Size Graduation**:
 
-### 4. Closing Line Value (CLV) & Line Movement Tracker
-- Available inside the **Matchup Deep-Dive Drawer** whenever an individual game is selected.
-- Captures the opening spread baseline, tracks live ESPN spread shifts with timestamps, locks the closing spread at tip-off, and calculates net CLV points (`+CLV` / `-CLV`) relative to the target pick.
+  * **Tier 1 (**$\ge 54.00\%$ **ATS)**: Core consensus models with at least 25 total games predicted (`agatha.gg`, `Versus Sports Simulator`, `Sagarin Predictor`).
 
-### 5. Matchup Deep-Dive Drawer & Live Cover Probability
-- **Ratings & H2H**: Season series summary, overall and home/road split records, Offensive/Defensive/Net Ratings per 100 possessions, and projected game pace.
-- **Live In-Game Win/Cover Tracker**: Real-time cover margin and time-decay normal CDF cover probability bar during live games.
+  * **Tier 2 (**$50.00\% - 53.99\%$ **ATS)**: Secondary consensus models with at least 25 total games predicted (`DirectorOfInformation.com`, `Game Time Decision`, `Dokter Entropy`, `Sagarin Rating`, `Sagarin Golden Mean`, `System Average`, `Sonny Moore`, `Massey Ratings`, `D Ratings.com`).
 
-### 6. Automated Cloud Firestore Historical Ledger
-- Automatically grades completed games using official `America/New_York` game dates and syncs all outcomes, scores, and model logs across all devices via Google Cloud Firestore (`nba_tracker_shared/main`).
-- Preserves all historical games permanently—including season rematches—with zero manual saving or importing required.
+  * **Tier 3 (**$\le 49.99\%$ **ATS)**: Contrarian check models with at least 25 total games predicted (`Sagarin Recent`, `Dunkel Index`, `ESPN BPI`, `Computer Adjusted`, `Talisman Red`, `Model Edge Sports`).
 
----
+  * **New Model (**$< 25$ **Total Games Predicted)**: Any newly added Google Sheet model starts in **`NEW MODEL`** status (`X/25 GP`), is tracked and graded daily in the background, and automatically graduates into Tier 1, Tier 2, or Tier 3 once it reaches **25 total games predicted**.
 
-## Version 1.3 Release Highlights
-- Interactive **`v1.3`** header badge to view `README.md` directly inside the app.
-- Streamlined main matchup dropdown defaulting to a clean selector prompt with **`📋 Display All Games`** option.
-- Single-matchup **Closing Line Value (CLV) & Line Movement Tracker**.
-- Dynamic **Prediction Model Leaderboard** with auto-discovery of new Google Sheet models, 25-game graduation rules, **Yesterday ATS**, and **Last 2 Weeks** columns.
-- Rematch-safe historical cloud synchronization with Firebase authentication and instant cache mirroring.
+* **Recent Form Columns (Yesterday ATS & Last 2 Weeks)**:
+
+  * Synchronized **Season To Date**, **Yesterday ATS** (`2026-11-17`), and rolling 14-day **Last 2 Weeks** ATS records directly on the **MODELS** leaderboard, with dedicated sort pills and daily automatic updates from `2026-11-18` onward.
+
+* **Automatic New Sheet Model Discovery (`buildSheetModelCatalog`)**: Automatically scans your Google Sheet every 5 minutes (or on manual **`↻ Sync Sheet`** click) so any newly added prediction model columns are discovered, graded daily in Cloud Firestore (`modelGameLogs`), and ranked on the **MODELS** leaderboard.
+
+* **Baseline Epoch Calibration (`2026-11-18`)**: Anchors the updated Season-To-Date, Yesterday (`2026-11-17`), and Last 2 Weeks totals to `2026-11-18` so only new games graded from today onward increment those records—preventing any double-counting of prior historical logs.
+
+## 3. Streamlined Matchup Dropdown & Focused Single-Game View
+
+* **Default Selector Prompt**: Opens directly to the clean matchup selector prompt (`— Click to Select a Matchup or Display All —`) with **`📋 Display All Games`** as an option inside the dropdown and `◀` / `▶` cycling controls.
+
+* **Contextual Filter Bar**: Quick-filter pills (`All Matchups`, `🔴 Live Now`, `Strong Bets`, `Leans`) and multi-token team search appear only when **Display All Games** is active.
+
+## 4. Single-Matchup Closing Line Value (CLV) & Line Movement Tracker
+
+* **Contextual CLV Module**: Appears inside the **Matchup Deep-Dive Drawer** when an individual matchup is selected, displaying Opening Spread, Live/Locked Closing Spread, Model Line, net `+CLV` / `-CLV` points relative to the target pick, and a chronological line movement timeline.
+
+## 5. Historical Ledger Cloud Protection & Read-Before-Write Merge
+
+* **Authenticated Cloud Sync & In-Memory Persistence**: Enables `firebase.auth.Auth.Persistence.NONE` fallback authentication so Cloud Firestore listeners and REST API hydration authenticate seamlessly across both `file:///` and hosted environments without `"Cloud Read Restricted"` blocks.
+
+* **Read-Before-Write Cloud Merge & Snapshot Guard (`saveGradesToCloud`)**: Prevents startup score checks from writing to `nba_tracker_shared/main` before existing cloud records are loaded, and fetches the latest server document before every write so historical matches are never overwritten.
+
+* **Pure Automated Ledger**: Preserves all historical game records permanently across season rematches under date-prefixed keys (`YYYY-MM-DD__Road__Home`) with zero manual entry or deletion controls.

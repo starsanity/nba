@@ -81,17 +81,17 @@
     <!-- Footer -->
     <footer class="p-4 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="font-bold text-slate-300">Delta Threshold Classification Structure:</span>
-            <span class="text-slate-400 font-mono-num">&Delta; = |Model Spread - Live ESPN Line|</span>
+            <span class="font-bold text-slate-300">Tier Cover Recommendation Structure:</span>
+            <span class="text-slate-400 font-mono-num">Model Spread vs. Live ESPN Line</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono-num">
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-sky-400 block mb-0.5">0.0 to 3.5 pts &mdash; LEANS:</strong>
-                Solid analytical model lean detecting edge and pricing discrepancy against the live ESPN line.
+                <strong class="text-emerald-400 block mb-0.5">STRONG BET &mdash; Tier 1/2 Cover Consensus:</strong>
+                Tier 1 = 100% cover, OR Tier 1 (&ge; 50% &amp; &lt; 100% cover) &amp; Tier 2 = 100% cover on the target side.
             </div>
             <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-                <strong class="text-emerald-400 block mb-0.5">&ge; 4.0 pts &mdash; STRONG BETS:</strong>
-                High-confidence premium edge where model consensus significantly deviates from live ESPN market pricing. (T3 contrarian opposition downgrades Strong Bet to Lean. No Pass).
+                <strong class="text-sky-400 block mb-0.5">LEAN &mdash; Partial Tier Consensus:</strong>
+                Tier 1, Tier 2, or Tier 3 is less than 100% cover (or Tier 2 = 100% with &lt; 50% Tier 1 cover).
             </div>
         </div>
     </footer>
@@ -114,16 +114,16 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 ## Core Features
 
 ### 1. Matchup Selector & Full Slate View
-- **Focused Single-Matchup View**: Select any matchup from the main dropdown (or cycle with \`◀\` / \`▶\`) to inspect that game's Delta edge, CLV tracker, and efficiency breakdown without clutter.
+- **Focused Single-Matchup View**: Select any matchup from the main dropdown (or cycle with \`◀\` / \`▶\`) to inspect that game's Tier Cover consensus, CLV tracker, and efficiency breakdown without clutter.
 - **Display All Games (\`📋 Display All Games\`)**: Expand the full daily slate into a responsive multi-card grid with quick-filter pills (\`All Matchups\`, \`🔴 Live Now\`, \`Strong Bets\`, \`Leans\`) and multi-token franchise search (city, mascot, or abbreviation).
 
-### 2. Delta Gatekeeper Classification
-- **Formula**: \`Δ = |Model Consensus Spread - Live ESPN Line|\`
+### 2. Tier Cover Recommendation Classification
+- Recommendations (**STRONG BET** or **LEAN**) are determined strictly by model cover agreement across active prediction model tiers against the live ESPN line:
 
-| Delta Range | Classification | Description |
+| Classification | Rule Condition | Description |
 |---|---|---|
-| ≥ 4.0 pts | **STRONG BET** | High-confidence edge where top-tier model consensus significantly deviates from live ESPN pricing. Downgraded to **LEAN** if Tier 3 contrarians oppose. |
-| 0.0 - 3.5 pts | **LEAN** | Actionable model lean detecting edge against the market spread. |
+| **STRONG BET** | \`Tier 1 = 100% cover\` **OR** \`Tier 1 (≥ 50% & < 100% cover) & Tier 2 = 100% cover\` | High-confidence consensus where 100% of Tier 1 models agree on the cover side, or at least 50% of Tier 1 models cover alongside 100% of Tier 2 models on that target side. |
+| **LEAN** | \`Tier 1, Tier 2, or Tier 3 < 100% cover\` (or \`Tier 2 = 100%\` with \`< 50%\` Tier 1 cover) | Actionable model lean where unanimous Tier 1/2 threshold conditions are not met. |
 
 - **Zero Passes**: Every matchup on the board produces an actionable pick (\`STRONG BET\` or \`LEAN\`).
 
@@ -152,6 +152,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
 ## Version 1.3 Release Highlights
 - Interactive **\`v1.3\`** header badge to view \`README.md\` directly inside the app.
+- Tier Cover Recommendation Engine replacing Delta Gatekeeper thresholds (**Strong Bet**: Tier 1 = 100% cover or Tier 1 ≥ 50% & < 100% cover with Tier 2 = 100% cover; **Lean**: Tier 1, Tier 2, or Tier 3 < 100% cover).
 - Streamlined main matchup dropdown defaulting to a clean selector prompt with **\`📋 Display All Games\`** option.
 - Single-matchup **Closing Line Value (CLV) & Line Movement Tracker**.
 - Dynamic **Prediction Model Leaderboard** with auto-discovery of new Google Sheet models, 25-game graduation rules, **Yesterday ATS**, and **Last 2 Weeks** columns.
@@ -296,7 +297,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         hasReceivedCloudSnapshot: false,
         pendingCloudSave: false,
         cloudStatus: 'Connecting to Cloud...',
-        showHistoryRestoreForm: false,
         showReadmeModal: false,
         readmeMarkdown: EMBEDDED_README_MD,
         readmeFetchedFromFile: false
@@ -375,11 +375,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         const num = Number(val);
         if (Math.abs(num) < 0.05) return 'PK';
         return num > 0 ? `+${num.toFixed(1)}` : num.toFixed(1);
-    }
-
-    function formatDeltaNum(val) {
-        if (val === null || val === undefined || isNaN(val)) return '0.0';
-        return Number(val).toFixed(1);
     }
 
     function formatTipoff(isoStr) {
@@ -664,16 +659,16 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
     }
 
     // =========================================================================
-    // 5. CONSENSUS & DELTA ANALYTICAL ENGINE
+    // 5. TIER COVER RECOMMENDATION ANALYTICAL ENGINE
     // =========================================================================
     function analyzeMatchup(game) {
         const leaderboard = getModelLeaderboardStats();
         const marketLine = game.liveLine !== null ? game.liveLine : game.sheetLine;
 
         const modelBreakdowns = [];
-        const tier1Spreads = [];
-        const tier2Spreads = [];
-        const tier3Spreads = [];
+        const tier1Models = [];
+        const tier2Models = [];
+        const tier3Models = [];
         const allSpreads = [];
 
         leaderboard.forEach(m => {
@@ -683,30 +678,32 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             if (isNaN(num)) return;
 
             allSpreads.push(num);
-            if (m.tier === 1) tier1Spreads.push(num);
-            else if (m.tier === 2) tier2Spreads.push(num);
-            else if (m.tier === 3) tier3Spreads.push(num);
-
             const diffVsMarket = marketLine !== null ? (num - marketLine) : 0;
             const leansHome = diffVsMarket < -0.05;
             const leansRoad = diffVsMarket > 0.05;
+            const leansSide = leansHome ? 'HOME' : (leansRoad ? 'ROAD' : 'EVEN');
 
-            modelBreakdowns.push({
+            const breakdownObj = {
                 ...m,
                 spread: num,
                 diffVsMarket,
-                leansSide: leansHome ? 'HOME' : (leansRoad ? 'ROAD' : 'EVEN'),
+                leansSide,
                 leansTeam: leansHome ? game.home : (leansRoad ? game.road : 'EVEN')
-            });
+            };
+
+            modelBreakdowns.push(breakdownObj);
+            if (m.tier === 1) tier1Models.push(breakdownObj);
+            else if (m.tier === 2) tier2Models.push(breakdownObj);
+            else if (m.tier === 3) tier3Models.push(breakdownObj);
         });
 
         const avg = arr => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
-        const t1Avg = avg(tier1Spreads);
-        const t2Avg = avg(tier2Spreads);
-        const t3Avg = avg(tier3Spreads);
+        const t1Avg = avg(tier1Models.map(x => x.spread));
+        const t2Avg = avg(tier2Models.map(x => x.spread));
+        const t3Avg = avg(tier3Models.map(x => x.spread));
         const overallAvg = avg(allSpreads);
 
-        // Weighted Consensus: prioritize Tier 1 (60%) + Tier 2 (40%), fallback to overall average
+        // Weighted Model Line (reference display)
         let modelSpread = overallAvg !== null ? overallAvg : (marketLine !== null ? marketLine : 0);
         if (t1Avg !== null && t2Avg !== null) {
             modelSpread = (t1Avg * 0.60) + (t2Avg * 0.40);
@@ -717,45 +714,90 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         }
 
         const effectiveMarket = marketLine !== null ? marketLine : modelSpread;
-        const rawDiff = modelSpread - effectiveMarket; // Negative = model likes Home more than market; Positive = model likes Road more
-        const delta = Math.round(Math.abs(rawDiff) * 10) / 10;
 
-        const pickHome = rawDiff <= 0;
+        // Helper to evaluate 100% cover agreement & side counts per tier
+        const evalTier = (models) => {
+            const total = models.length;
+            const homeCount = models.filter(m => m.leansSide === 'HOME').length;
+            const roadCount = models.filter(m => m.leansSide === 'ROAD').length;
+            let unanimousSide = null;
+            if (total > 0 && homeCount === total) unanimousSide = 'HOME';
+            else if (total > 0 && roadCount === total) unanimousSide = 'ROAD';
+            return { total, homeCount, roadCount, unanimousSide };
+        };
+
+        const t1Eval = evalTier(tier1Models);
+        const t2Eval = evalTier(tier2Models);
+        const t3Eval = evalTier(tier3Models);
+
+        // Recommendation Classification Rules:
+        // Strong Bet: Tier 1 = 100% cover OR (Tier 1 >= 50% & < 100% cover AND Tier 2 = 100% cover on target side)
+        // Lean: Tier 1, Tier 2, or Tier 3 < 100% cover (or Tier 2 = 100% with < 50% Tier 1 cover)
+        let finalAction = 'LEAN';
+        let chosenSide = 'HOME';
+        let decisionReason = '';
+
+        const t2TargetTier1Count = t2Eval.unanimousSide === 'HOME'
+            ? t1Eval.homeCount
+            : (t2Eval.unanimousSide === 'ROAD' ? t1Eval.roadCount : 0);
+        const hasAtLeastHalfTier1 = t1Eval.total === 0 || (t2TargetTier1Count * 2 >= t1Eval.total);
+
+        if (t1Eval.unanimousSide !== null) {
+            finalAction = 'STRONG BET';
+            chosenSide = t1Eval.unanimousSide;
+            decisionReason = 'Tier 1 = 100% Cover';
+        } else if (t2Eval.unanimousSide !== null && hasAtLeastHalfTier1) {
+            finalAction = 'STRONG BET';
+            chosenSide = t2Eval.unanimousSide;
+            decisionReason = 'Tier 1 ≥ 50% & Tier 2 = 100% Cover';
+        } else {
+            finalAction = 'LEAN';
+            // Determine target side for Lean by highest-tier majority, then weighted consensus
+            if (t1Eval.homeCount !== t1Eval.roadCount) {
+                chosenSide = t1Eval.homeCount > t1Eval.roadCount ? 'HOME' : 'ROAD';
+            } else if (t2Eval.homeCount !== t2Eval.roadCount) {
+                chosenSide = t2Eval.homeCount > t2Eval.roadCount ? 'HOME' : 'ROAD';
+            } else if (t3Eval.homeCount !== t3Eval.roadCount) {
+                chosenSide = t3Eval.homeCount > t3Eval.roadCount ? 'HOME' : 'ROAD';
+            } else {
+                chosenSide = (modelSpread - effectiveMarket) <= 0 ? 'HOME' : 'ROAD';
+            }
+            decisionReason = 'Tier Cover < 100%';
+        }
+
+        const pickHome = chosenSide === 'HOME';
         const targetTeam = pickHome ? game.home : game.road;
         const targetSpread = pickHome ? effectiveMarket : -effectiveMarket;
         const formattedPick = `${targetTeam} (${formatSpread(targetSpread)})`;
 
-        // Tier 3 contrarian check: if Tier 3 average opposes the consensus pick by >= 1.0 pt, downgrade Strong Bet -> Lean
-        let tier3Opposes = false;
-        if (t3Avg !== null && effectiveMarket !== null) {
-            const t3Diff = t3Avg - effectiveMarket;
-            if ((pickHome && t3Diff > 1.0) || (!pickHome && t3Diff < -1.0)) {
-                tier3Opposes = true;
-            }
-        }
+        // Calculate cover percentage on the chosen target side for each tier
+        const calcSidePct = (ev) => {
+            if (ev.total === 0) return 0;
+            const matchCount = pickHome ? ev.homeCount : ev.roadCount;
+            return Math.round((matchCount / ev.total) * 100);
+        };
 
-        let finalAction = 'LEAN';
-        let downgradeReason = null;
-        if (delta >= 4.0) {
-            if (tier3Opposes) {
-                finalAction = 'LEAN';
-                downgradeReason = 'Downgraded from Strong Bet due to Tier 3 contrarian opposition';
-            } else {
-                finalAction = 'STRONG BET';
-            }
-        }
+        const t1CoverPct = calcSidePct(t1Eval);
+        const t2CoverPct = calcSidePct(t2Eval);
+        const t3CoverPct = calcSidePct(t3Eval);
+        const tierSummary = `T1 ${t1CoverPct}% • T2 ${t2CoverPct}% • T3 ${t3CoverPct}%`;
 
         return {
             modelSpread,
             marketLine: effectiveMarket,
-            delta,
             pickHome,
             targetTeam,
             targetSpread,
             formattedPick,
             finalAction,
-            downgradeReason,
-            tier3Opposes,
+            decisionReason,
+            t1CoverPct,
+            t2CoverPct,
+            t3CoverPct,
+            t1Count: t1Eval.total,
+            t2Count: t2Eval.total,
+            t3Count: t3Eval.total,
+            tierSummary,
             t1Avg,
             t2Avg,
             t3Avg,
@@ -805,7 +847,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         if (game.awayScore === null || game.homeScore === null || !game.result) return null;
         const spread = game.result.marketLine; // Home team spread (e.g. -5.5)
         const homeMargin = game.homeScore - game.awayScore;
-        // Home covers if homeMargin + spread > 0
         const homeCoverMargin = homeMargin + spread;
         const targetCoverMargin = game.result.pickHome ? homeCoverMargin : -homeCoverMargin;
 
@@ -915,7 +956,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             awayScore: item.awayScore !== undefined ? item.awayScore : (item.roadScore !== undefined ? item.roadScore : null),
             homeScore: item.homeScore !== undefined ? item.homeScore : null,
             signal: item.signal || 'STRONG BET',
-            delta: item.delta !== undefined ? item.delta : (item.signal === 'LEAN' ? 2.5 : 4.5),
+            tierSummary: item.tierSummary || null,
             pick: item.pick || `${homeTeam} Spread`,
             home: homeTeam,
             road: roadTeam,
@@ -949,7 +990,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                     awayScore: g.awayScore,
                     homeScore: g.homeScore,
                     signal: g.result.finalAction,
-                    delta: g.result.delta,
+                    tierSummary: g.result.tierSummary,
                     pick: g.result.formattedPick,
                     home: g.home,
                     road: g.road,
@@ -1036,10 +1077,39 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         return applied;
     }
 
+    async function getActiveAuthToken() {
+        try {
+            if (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') {
+                const user = firebase.auth().currentUser;
+                if (user && typeof user.getIdToken === 'function') {
+                    return await user.getIdToken();
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    async function ensureFirebaseAuthSession() {
+        if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') return null;
+        try {
+            const auth = firebase.auth();
+            if (auth.currentUser) return auth.currentUser;
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+            } catch (pErr) {}
+            const cred = await auth.signInAnonymously();
+            return cred && cred.user ? cred.user : auth.currentUser;
+        } catch (authErr) {
+            return null;
+        }
+    }
+
     async function fetchCloudViaRestFallback() {
         try {
             const url = `https://firestore.googleapis.com/v1/projects/${customFirebaseConfig.projectId}/databases/(default)/documents/nba_tracker_shared/main?key=${customFirebaseConfig.apiKey}`;
-            const res = await fetch(url);
+            const token = await getActiveAuthToken();
+            const fetchOpts = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+            const res = await fetch(url, fetchOpts);
             if (!res || !res.ok) return false;
             const json = await res.json();
             if (!json || !json.fields) return false;
@@ -1115,29 +1185,23 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 saveGradesToCloud();
             }
             renderApp();
-        }, err => {
+        }, async err => {
             state.isCloudLoaded = true;
             const code = err && err.code ? err.code : '';
-            if (code === 'permission-denied' && allowAuthFallback && typeof firebase.auth === 'function') {
-                firebase.auth().signInAnonymously()
-                    .then(() => {
-                        firestoreListenerAttached = false;
-                        attachFirestoreListener(db, false);
-                    })
-                    .catch(() => {
-                        state.cloudStatus = 'Cloud Read Restricted';
-                        renderApp();
-                    });
-                return;
-            }
-            fetchCloudViaRestFallback().then(ok => {
-                if (!ok) {
-                    state.cloudStatus = code === 'permission-denied'
-                        ? 'Cloud Read Restricted'
-                        : 'Cached Mode';
-                    renderApp();
+            if (code === 'permission-denied' && allowAuthFallback) {
+                const user = await ensureFirebaseAuthSession();
+                if (user) {
+                    firestoreListenerAttached = false;
+                    attachFirestoreListener(db, false);
+                    fetchCloudViaRestFallback();
+                    return;
                 }
-            });
+            }
+            const ok = await fetchCloudViaRestFallback();
+            if (!ok) {
+                state.cloudStatus = 'Local Sync Active';
+                renderApp();
+            }
         });
     }
 
@@ -1147,7 +1211,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
         if (typeof firebase === 'undefined') {
             state.isCloudLoaded = true;
-            state.cloudStatus = 'Cached Mode';
+            state.cloudStatus = 'Local Sync Active';
             return;
         }
         try {
@@ -1159,12 +1223,10 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 db.settings({ experimentalForceLongPolling: true, merge: true });
             } catch (settingsErr) {}
 
-            // Connect directly to Firestore first (avoids 400 Bad Request console errors when Anonymous Auth is off)
-            const isFileProtocol = window.location && window.location.protocol === 'file:';
-            attachFirestoreListener(db, !isFileProtocol);
+            attachFirestoreListener(db, true);
         } catch (e) {
             state.isCloudLoaded = true;
-            state.cloudStatus = 'Cached Mode';
+            state.cloudStatus = 'Local Sync Active';
         }
     }
 
@@ -1373,7 +1435,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             state.games = parsedGames;
             reanalyzeAllGames();
 
-            // Keep selectedGameKey valid if slate refreshes
             if (state.selectedGameKey && state.selectedGameKey !== '__ALL__') {
                 const stillExists = state.games.some(g => g.key === state.selectedGameKey);
                 if (!stillExists) {
@@ -1448,7 +1509,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 const homeScore = homeComp.score !== undefined && homeComp.score !== '' ? parseInt(homeComp.score, 10) : null;
                 const liveSpread = parseEspnSpread(comp, homeComp);
 
-                // Extract H2H series and split records
                 let h2hSeries = null;
                 if (comp.series && comp.series.summary) {
                     h2hSeries = comp.series.summary;
@@ -1462,12 +1522,9 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                     return found ? found.summary : null;
                 };
 
-                // Reconcile any misdated cloud records (e.g., late-night games shifted to next day)
                 Object.keys(state.grades).forEach(gKey => {
                     const item = state.grades[gKey];
                     if (!item || !item.home || !item.road) return;
-                    const fakeHome = { team: { location: item.home, name: item.home, abbreviation: item.home } };
-                    const fakeRoad = { team: { location: item.road, name: item.road, abbreviation: item.road } };
                     if (matchEspnTeam(item.home, homeComp) && matchEspnTeam(item.road, awayComp)) {
                         const dayAfterOfficial = getEasternIsoDate(new Date(new Date(officialDateIso + 'T12:00:00Z').getTime() + 24 * 60 * 60 * 1000));
                         if (item.date === dayAfterOfficial && officialDateIso !== dayAfterOfficial) {
@@ -1480,10 +1537,8 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                             gradesReconciled = true;
                         }
                     }
-                    void fakeHome; void fakeRoad;
                 });
 
-                // Match against active Google Sheet slate
                 state.games.forEach(g => {
                     if (matchEspnTeam(g.home, homeComp) && matchEspnTeam(g.road, awayComp)) {
                         const liveKey = `${g.road}__${g.home}`;
@@ -1511,7 +1566,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
             reanalyzeAllGames();
 
-            // Sort games chronologically by tipoff
             state.games.sort((a, b) => {
                 const ta = a.eventDate ? new Date(a.eventDate).getTime() : Number.MAX_SAFE_INTEGER;
                 const tb = b.eventDate ? new Date(b.eventDate).getTime() : Number.MAX_SAFE_INTEGER;
@@ -1600,7 +1654,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             const lockedClosing = snap && snap.isLocked ? snap.closingHomeSpread : null;
             const compareHome = lockedClosing !== null ? lockedClosing : currentHome;
 
-            // Positive CLV means the market moved in favor of our pick after opening
             const rawMove = openHome - compareHome;
             const netClv = res.pickHome ? -rawMove : rawMove;
             const clvBadgeCls = netClv > 0.05
@@ -1629,7 +1682,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                             <div class="text-xs font-bold text-white mt-0.5">${formatSpread(compareHome)}</div>
                         </div>
                         <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                            <div class="text-[9px] uppercase text-slate-400">Model Consensus</div>
+                            <div class="text-[9px] uppercase text-slate-400">Model Line</div>
                             <div class="text-xs font-bold text-orange-400 mt-0.5">${formatSpread(res.modelSpread)}</div>
                         </div>
                     </div>
@@ -1735,7 +1788,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                                     <th class="py-1.5 text-center">Tier</th>
                                     <th class="py-1.5 text-center">ATS %</th>
                                     <th class="py-1.5 text-right">Proj Line</th>
-                                    <th class="py-1.5 text-right">Lean</th>
+                                    <th class="py-1.5 text-right">Cover Side</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800/70">
@@ -1811,7 +1864,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
             ${liveCoverBarHtml}
 
-            <!-- Spread & Delta Comparison Grid -->
+            <!-- Spread & Tier Cover Consensus Grid -->
             <div class="grid grid-cols-3 gap-2 text-center font-mono-num">
                 <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
                     <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">Model Line</div>
@@ -1824,9 +1877,9 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                     <div class="text-[9px] text-slate-500 mt-0.5">${esc(game.home)}</div>
                 </div>
                 <div class="bg-slate-950/80 p-2.5 rounded-xl border ${isStrong ? 'border-emerald-500/40' : 'border-sky-500/40'}">
-                    <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">Edge Delta</div>
-                    <div class="text-sm font-black ${isStrong ? 'text-emerald-400' : 'text-sky-400'} mt-0.5">&Delta; ${formatDeltaNum(res.delta)}</div>
-                    <div class="text-[9px] text-slate-500 mt-0.5">pts</div>
+                    <div class="text-[9px] font-sans font-bold uppercase tracking-wider text-slate-400">Tier Cover %</div>
+                    <div class="text-xs font-black ${res.t1CoverPct === 100 ? 'text-emerald-400' : 'text-slate-200'} mt-0.5">T1: ${res.t1CoverPct}%</div>
+                    <div class="text-[9px] ${res.t2CoverPct === 100 ? 'text-emerald-400 font-bold' : 'text-slate-400'} mt-0.5">T2: ${res.t2CoverPct}% &bull; T3: ${res.t3CoverPct}%</div>
                 </div>
             </div>
 
@@ -1835,7 +1888,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 <div>
                     <div class="text-[9px] font-bold uppercase tracking-wider ${isStrong ? 'text-emerald-300' : 'text-sky-300'}">Recommended Action Pick</div>
                     <div class="text-sm sm:text-base font-mono-num font-black text-white mt-0.5">${esc(res.formattedPick)}</div>
-                    ${res.downgradeReason ? `<div class="text-[10px] text-amber-300 mt-0.5">⚠️ ${esc(res.downgradeReason)}</div>` : ''}
+                    <div class="text-[10px] font-mono-num ${isStrong ? 'text-emerald-300' : 'text-sky-300'} mt-0.5">${esc(res.decisionReason)} (${esc(res.tierSummary)})</div>
                 </div>
                 <button type="button" onclick="window.__nbaActions.toggleDrawer('${esc(game.key)}')"
                     class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] font-bold text-slate-200 transition cursor-pointer">
@@ -1877,8 +1930,8 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 <div class="flex flex-wrap items-center gap-1.5">
                     <button type="button" onclick="window.__nbaActions.setFilter('all')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'all' ? 'bg-orange-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">All Matchups</button>
                     <button type="button" onclick="window.__nbaActions.setFilter('live')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'live' ? 'bg-rose-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">🔴 Live Now</button>
-                    <button type="button" onclick="window.__nbaActions.setFilter('strong')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'strong' ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">Strong Bets (&ge;4.0)</button>
-                    <button type="button" onclick="window.__nbaActions.setFilter('lean')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'lean' ? 'bg-sky-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">Leans (0.0 - 3.5)</button>
+                    <button type="button" onclick="window.__nbaActions.setFilter('strong')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'strong' ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">Strong Bets</button>
+                    <button type="button" onclick="window.__nbaActions.setFilter('lean')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${state.activeFilter === 'lean' ? 'bg-sky-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}">Leans</button>
                 </div>
                 <div class="relative sm:w-64">
                     <input id="search-input" type="text" value="${esc(state.searchQuery)}"
@@ -1929,7 +1982,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                         <option value="__ALL__" ${state.selectedGameKey === '__ALL__' ? 'selected' : ''}>📋 Display All Games (${state.games.length} Matchups)</option>
                         ${state.games.map(g => {
                             const r = g.result || analyzeMatchup(g);
-                            return `<option value="${esc(g.key)}" ${state.selectedGameKey === g.key ? 'selected' : ''}>${esc(g.road)} @ ${esc(g.home)} — ${esc(r.finalAction)} (Δ ${formatDeltaNum(r.delta)})</option>`;
+                            return `<option value="${esc(g.key)}" ${state.selectedGameKey === g.key ? 'selected' : ''}>${esc(g.road)} @ ${esc(g.home)} — ${esc(r.finalAction)} (T1 ${r.t1CoverPct}% / T2 ${r.t2CoverPct}%)</option>`;
                         }).join('')}
                     </select>
                     <button type="button" onclick="window.__nbaActions.cycleMatchup(1)" title="Next Matchup"
@@ -1995,7 +2048,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                     </div>
                     <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
                         <div class="font-extrabold text-amber-300">TIER 3 (&le; 49.99%)</div>
-                        <div class="text-slate-400 font-sans mt-0.5">Contrarian Check (&ge;25 GP)</div>
+                        <div class="text-slate-400 font-sans mt-0.5">Tier 3 Models (&ge;25 GP)</div>
                     </div>
                     <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2">
                         <div class="font-extrabold text-purple-300">NEW MODEL (&lt; 25 GP)</div>
@@ -2015,7 +2068,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 </div>
             </div>
 
-            <!-- Leaderboard Table (No Sheet Column per request; includes Yesterday ATS & Last 2 Weeks) -->
+            <!-- Leaderboard Table -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -2087,7 +2140,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             .map(([key, raw]) => normalizeGradeItem(raw, key))
             .filter(item => item && item.grade);
 
-        // Filter by timeframe
         const tfFiltered = allGraded.filter(item => {
             if (state.activeTimeframe === 'today') return item.date === todayIso;
             if (state.activeTimeframe === 'yesterday') return item.date === yesterdayIso;
@@ -2111,7 +2163,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         const leanStats = calcStats(tfFiltered.filter(x => x.signal === 'LEAN'));
         const overallStats = calcStats(tfFiltered);
 
-        // Apply signal & outcome table filters
         const gradedList = tfFiltered
             .filter(item => {
                 if (state.recordSignalFilter === 'strong' && item.signal !== 'STRONG BET') return false;
@@ -2134,57 +2185,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
         const isCloudHealthy = state.hasReceivedCloudSnapshot;
         const cloudBadgeCls = isCloudHealthy
             ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-            : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-
-        const restoreFormHtml = state.showHistoryRestoreForm ? `
-            <div class="bg-slate-900 border border-orange-500/40 rounded-xl p-4 space-y-3 shadow-lg">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <div class="text-xs font-extrabold uppercase tracking-wider text-orange-400">Restore / Log Historical Match</div>
-                    <button type="button" onclick="window.__nbaActions.toggleHistoryRestoreForm()" class="text-xs text-slate-400 hover:text-white cursor-pointer">✕ Close</button>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Game Date</label>
-                        <input id="hist-date" type="date" value="${yesterdayIso}" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-mono-num">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Road Team</label>
-                        <input id="hist-road" type="text" placeholder="e.g. Boston" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Home Team</label>
-                        <input id="hist-home" type="text" placeholder="e.g. Detroit" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Signal &amp; Delta</label>
-                        <select id="hist-signal" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-bold">
-                            <option value="STRONG BET">STRONG BET (&ge;4.0)</option>
-                            <option value="LEAN">LEAN (0.0 - 3.5)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Pick &amp; Spread</label>
-                        <input id="hist-pick" type="text" placeholder="e.g. Boston (-4.5)" class="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-mono-num">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Score (Road - Home) &amp; Outcome</label>
-                        <div class="flex items-center gap-1.5">
-                            <input id="hist-away-score" type="number" placeholder="Road" class="w-16 px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-mono-num">
-                            <input id="hist-home-score" type="number" placeholder="Home" class="w-16 px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-mono-num">
-                            <select id="hist-outcome" class="flex-1 px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 font-bold">
-                                <option value="W">WIN</option>
-                                <option value="L">LOSS</option>
-                                <option value="P">PUSH</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex justify-end gap-2 pt-1">
-                    <button type="button" onclick="window.__nbaActions.saveHistoricalPlay()" class="px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold cursor-pointer">
-                        Save Play to Cloud Ledger
-                    </button>
-                </div>
-            </div>` : '';
+            : 'bg-sky-500/15 text-sky-300 border-sky-500/30';
 
         const tableSection = gradedList.length === 0 ? `
             <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center space-y-3">
@@ -2194,9 +2195,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 <div class="flex justify-center gap-2 pt-1">
                     <button type="button" onclick="window.__nbaActions.forceCloudReload()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 cursor-pointer">
                         ↻ Force Cloud Reload
-                    </button>
-                    <button type="button" onclick="window.__nbaActions.toggleHistoryRestoreForm()" class="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-xs font-bold text-white cursor-pointer">
-                        + Log Historical Match
                     </button>
                 </div>
             </div>` : `
@@ -2215,6 +2213,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                         <tbody class="divide-y divide-slate-800/70 text-xs">
                             ${gradedList.map(item => {
                                 const badgeCls = item.grade === 'W' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : (item.grade === 'L' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40');
+                                const signalSubtext = item.tierSummary ? `${item.signal} (${item.tierSummary})` : item.signal;
                                 return `
                                 <tr class="hover:bg-slate-800/40 transition">
                                     <td class="py-3 px-3 text-[11px] font-mono-num text-slate-400">${esc(item.date)}</td>
@@ -2222,7 +2221,7 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                                         <div class="font-bold text-slate-100 flex items-center gap-1.5 flex-wrap">
                                             <span>${esc(item.road)}</span><span class="text-slate-500">@</span><span class="text-orange-400">${esc(item.home)}</span>
                                         </div>
-                                        <div class="text-[10px] font-bold ${item.signal === 'STRONG BET' ? 'text-emerald-400' : 'text-sky-400'}">${esc(item.signal)} (&Delta; ${formatDeltaNum(item.delta)} pts)</div>
+                                        <div class="text-[10px] font-bold ${item.signal === 'STRONG BET' ? 'text-emerald-400' : 'text-sky-400'}">${esc(signalSubtext)}</div>
                                     </td>
                                     <td class="py-3 px-3 font-mono-num font-bold text-white">${esc(item.pick)}</td>
                                     <td class="py-3 px-3 text-center font-mono-num font-bold text-slate-200">${item.awayScore !== null ? item.awayScore + ' - ' + item.homeScore : '—'}</td>
@@ -2248,27 +2247,22 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button type="button" onclick="window.__nbaActions.toggleHistoryRestoreForm()" class="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-200 transition cursor-pointer">
-                        + Log Historical Match
-                    </button>
                     <button type="button" onclick="window.__nbaActions.forceCloudReload()" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-mono-num font-bold cursor-pointer ${cloudBadgeCls}" title="Click to reload from Cloud Firestore">
-                        <span class="w-1.5 h-1.5 rounded-full ${isCloudHealthy ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}"></span>
+                        <span class="w-1.5 h-1.5 rounded-full ${isCloudHealthy ? 'bg-emerald-400' : 'bg-sky-400 animate-pulse'}"></span>
                         <span>${esc(state.cloudStatus)}</span>
                     </button>
                 </div>
             </div>
 
-            ${restoreFormHtml}
-
             <!-- 3 KPI Hero Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num">
                 <div class="bg-slate-900 border border-emerald-500/30 rounded-xl p-3.5 shadow">
-                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-emerald-400">Strong Bets (&ge; 4.0)</div>
+                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-emerald-400">Strong Bets (T1 100% / T1 &ge;50% + T2 100%)</div>
                     <div class="text-xl font-black text-white mt-1">${strongStats.w}-${strongStats.l}${strongStats.p > 0 ? '-' + strongStats.p : ''}</div>
                     <div class="text-[11px] text-emerald-300 font-bold mt-0.5">${strongStats.pct} Win Rate</div>
                 </div>
                 <div class="bg-slate-900 border border-sky-500/30 rounded-xl p-3.5 shadow">
-                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-sky-400">Leans (0.0 - 3.5)</div>
+                    <div class="text-[10px] font-sans font-extrabold uppercase tracking-wider text-sky-400">Leans (&lt; 100% Cover)</div>
                     <div class="text-xl font-black text-white mt-1">${leanStats.w}-${leanStats.l}${leanStats.p > 0 ? '-' + leanStats.p : ''}</div>
                     <div class="text-[11px] text-sky-300 font-bold mt-0.5">${leanStats.pct} Win Rate</div>
                 </div>
@@ -2318,7 +2312,9 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 } else {
                     html += `<tr class="border-b border-slate-800/80">`;
                     cells.forEach(c => {
-                        const fmt = esc(c).replace(/\*\*(.+?)\*\*/g, '<strong class="text-white">$1</strong>');
+                        const fmt = esc(c)
+                            .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white">$1</strong>')
+                            .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded bg-slate-800 text-orange-300 font-mono-num text-[11px]">$1</code>');
                         html += `<td class="p-2 border border-slate-800 text-slate-300">${fmt}</td>`;
                     });
                     html += `</tr>`;
@@ -2389,13 +2385,11 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
     }
 
     function renderApp() {
-        // Preserve active input focus & cursor position across background updates
         const activeEl = document.activeElement;
         const activeId = activeEl && activeEl.id ? activeEl.id : null;
         const selStart = activeEl && typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : null;
         const selEnd = activeEl && typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : null;
 
-        // Top Live Badge
         const liveBadgeEl = document.getElementById('header-live-badge');
         if (liveBadgeEl) {
             const liveCount = state.games.filter(g => g.statusState === 'in').length;
@@ -2407,7 +2401,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
                 </button>`;
         }
 
-        // 3 Navigation Tabs: GAMES (with matchup count), MODELS, RECORD
         const navEl = document.getElementById('nav-tabs');
         if (navEl) {
             const tabs = [
@@ -2426,7 +2419,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             }).join('');
         }
 
-        // Main Content
         const mainEl = document.getElementById('main-content');
         if (mainEl) {
             if (state.activeTab === 'models') mainEl.innerHTML = renderModelsTab();
@@ -2436,7 +2428,6 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
 
         renderReadmeModal();
 
-        // Restore focus if the user was actively typing
         if (activeId) {
             const restored = document.getElementById(activeId);
             if (restored) {
@@ -2504,49 +2495,12 @@ An automated NBA spread analytics, live market line comparison, Closing Line Val
             state.recordOutcomeFilter = out;
             renderApp();
         },
-        toggleHistoryRestoreForm() {
-            state.showHistoryRestoreForm = !state.showHistoryRestoreForm;
-            renderApp();
-        },
-        forceCloudReload() {
+        async forceCloudReload() {
             state.cloudStatus = 'Syncing Cloud...';
             renderApp();
-            fetchCloudViaRestFallback().then(() => {
-                fetchLiveScores();
-            });
-        },
-        saveHistoricalPlay() {
-            const dateVal = normalizeDateString(document.getElementById('hist-date')?.value || getYesterdayIso());
-            const roadVal = String(document.getElementById('hist-road')?.value || '').trim();
-            const homeVal = String(document.getElementById('hist-home')?.value || '').trim();
-            const signalVal = document.getElementById('hist-signal')?.value || 'STRONG BET';
-            const pickVal = String(document.getElementById('hist-pick')?.value || '').trim();
-            const awayScoreRaw = document.getElementById('hist-away-score')?.value;
-            const homeScoreRaw = document.getElementById('hist-home-score')?.value;
-            const outcomeVal = document.getElementById('hist-outcome')?.value || 'W';
-
-            if (!roadVal || !homeVal) return;
-
-            const awayScore = awayScoreRaw !== '' && awayScoreRaw !== null ? parseInt(awayScoreRaw, 10) : null;
-            const homeScore = homeScoreRaw !== '' && homeScoreRaw !== null ? parseInt(homeScoreRaw, 10) : null;
-            const recordKey = `${dateVal}__${roadVal}__${homeVal}`;
-
-            state.grades[recordKey] = {
-                grade: outcomeVal,
-                awayScore: isNaN(awayScore) ? null : awayScore,
-                homeScore: isNaN(homeScore) ? null : homeScore,
-                signal: signalVal,
-                delta: signalVal === 'STRONG BET' ? 4.5 : 2.5,
-                pick: pickVal || `${homeVal} Spread`,
-                home: homeVal,
-                road: roadVal,
-                date: dateVal,
-                auto: false
-            };
-            state.showHistoryRestoreForm = false;
-            state.hasReceivedCloudSnapshot = true;
-            saveGradesToCloud();
-            renderApp();
+            await ensureFirebaseAuthSession();
+            await fetchCloudViaRestFallback();
+            await fetchLiveScores();
         },
         openReadmeModal() {
             state.showReadmeModal = true;
